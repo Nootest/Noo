@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tank Game</title>
+  <style>
+    body { margin: 0; background: #222; }
+    canvas { display: block; margin: auto; background: #333; }
+  </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+
+<script>
+// --- Game Variables ---
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+let keys = {};
+
+const gameState = {
+  player: null,
+  walls: [],
+  enemies: [],
+  bullets: [],
+  items: [],
+  lastTime: 0,
+};
+
+// --- Utility Functions ---
+function rectsIntersect(r1, r2) {
+  return !(r2.x > r1.x + r1.width ||
+           r2.x + r2.width < r1.x ||
+           r2.y > r1.y + r1.height ||
+           r2.y + r2.height < r1.y);
+}
+
+// --- Classes ---
+// Player Tank
+class Tank {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.width = 40;
+    this.height = 40;
+    this.speed = 2;
+    this.level = 1;
+    this.gunPower = 1;
+    this.direction = 0; // in radians; 0 pointing right
+    this.cooldown = 0;
+  }
+
+  update() {
+    // Movement controls
+    if (keys["ArrowUp"]) {
+      this.y -= this.speed;
+      this.direction = -Math.PI/2;
+    }
+    if (keys["ArrowDown"]) {
+      this.y += this.speed;
+      this.direction = Math.PI/2;
+    }
+    if (keys["ArrowLeft"]) {
+      this.x -= this.speed;
+      this.direction = Math.PI;
+    }
+    if (keys["ArrowRight"]) {
+      this.x += this.speed;
+      this.direction = 0;
+    }
+
+    // Prevent tank from leaving canvas
+    this.x = Math.max(0, Math.min(canvas.width - this.width, this.x));
+    this.y = Math.max(0, Math.min(canvas.height - this.height, this.y));
+
+    // Shooting cooldown
+    if (this.cooldown > 0) this.cooldown--;
+  }
+
+  draw() {
+    ctx.save();
+    ctx.translate(this.x + this.width/2, this.y + this.height/2);
+    ctx.rotate(this.direction);
+    ctx.fillStyle = "lime";
+    ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+    // Draw a simple gun barrel
+    ctx.fillStyle = "darkgreen";
+    ctx.fillRect(this.width/2, -5, 15, 10);
+    ctx.restore();
+  }
+
+  shoot() {
+    if (this.cooldown === 0) {
+      // Create a new bullet starting from the tip of the barrel
+      const bx = this.x + this.width/2 + Math.cos(this.direction) * (this.width/2 + 15);
+      const by = this.y + this.height/2 + Math.sin(this.direction) * (this.height/2 + 15);
+      gameState.bullets.push(new Bullet(bx, by, this.direction, this.gunPower));
+      this.cooldown = 20; // adjust cooldown frames
+    }
+  }
+
+  levelUp() {
+    this.level++;
+    this.speed += 0.5;
+    this.gunPower += 0.5;
+    console.log(`Leveled up! Level: ${this.level}`);
+  }
+}
+
+// Bullet Class
+class Bullet {
+  constructor(x, y, direction, power) {
+    this.x = x;
+    this.y = y;
+    this.radius = 4;
+    this.speed = 5;
+    this.direction = direction;
+    this.power = power;
+  }
+
+  update() {
+    this.x += Math.cos(this.direction) * this.speed;
+    this.y += Math.sin(this.direction) * this.speed;
+  }
+
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+    ctx.fillStyle = "yellow";
+    ctx.fill();
+  }
+
+  // Check if off-screen
+  isOffScreen() {
+    return (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height);
+  }
+}
+
+// Wall Class (destructible)
+class Wall {
+  constructor(x, y, width, height, health=3) {
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
+    this.health = health;
+  }
+
+  draw() {
+    ctx.fillStyle = "brown";
+    ctx.fillRect(this.x, this.y, this.width, this.height);
+    // Health indicator
+    ctx.fillStyle = "white";
+    ctx.font = "12px sans-serif";
+    ctx.fillText(this.health, this.x+this.width/2-4, this.y+this.height/2+4);
+  }
+}
+
+// Enemy Tank (simple AI)
+class Enemy {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.width = 40;
+    this.height = 40;
+    this.speed = 1.5;
+    this.health = 3;
+  }
+
+  update() {
+    // Simple AI: move toward the player
+    const dx = gameState.player.x - this.x;
+    const dy = gameState.player.y - this.y;
+    const angle = Math.atan2(dy, dx);
+    this.x += Math.cos(angle) * this.speed;
+    this.y += Math.sin(angle) * this.speed;
+  }
+
+  draw() {
+    ctx.save();
+    ctx.translate(this.x + this.width/2, this.y + this.height/2);
+    // Rotate to face the player
+    const dx = gameState.player.x - this.x;
+    const dy = gameState.player.y - this.y;
+    ctx.rotate(Math.atan2(dy, dx));
+    ctx.fillStyle = "red";
+    ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+    ctx.restore();
+  }
+}
+
+// Item Class (level up power-up)
+class Item {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.width = 20;
+    this.height = 20;
+  }
+
+  draw() {
+    ctx.fillStyle = "gold";
+    ctx.fillRect(this.x, this.y, this.width, this.height);
+    ctx.fillStyle = "black";
+    ctx.font = "14px sans-serif";
+    ctx.fillText("↑", this.x+4, this.y+16);
+  }
+}
+
+// --- Game Setup ---
+function initGame() {
+  gameState.player = new Tank(100, 100);
+  // Create some walls
+  gameState.walls.push(new Wall(200, 150, 100, 20));
+  gameState.walls.push(new Wall(400, 300, 20, 100));
+  gameState.walls.push(new Wall(600, 100, 80, 20));
+  
+  // Create some enemies
+  gameState.enemies.push(new Enemy(700, 500));
+  gameState.enemies.push(new Enemy(50, 400));
+
+  // Create an item for level up
+  gameState.items.push(new Item(350, 250));
+}
+
+// --- Main Game Loop ---
+function gameLoop(timestamp) {
+  const deltaTime = timestamp - gameState.lastTime;
+  gameState.lastTime = timestamp;
+  
+  update();
+  draw();
+  
+  requestAnimationFrame(gameLoop);
+}
+
+// --- Update Function ---
+function update() {
+  // Update player
+  gameState.player.update();
+
+  // Update bullets
+  for (let i = gameState.bullets.length - 1; i >= 0; i--) {
+    const bullet = gameState.bullets[i];
+    bullet.update();
+
+    // Check bullet collisions with walls
+    for (let j = gameState.walls.length - 1; j >= 0; j--) {
+      const wall = gameState.walls[j];
+      const bulletRect = {x: bullet.x - bullet.radius, y: bullet.y - bullet.radius, width: bullet.radius*2, height: bullet.radius*2};
+      if (rectsIntersect(bulletRect, wall)) {
+        wall.health -= bullet.power;
+        // Remove bullet on hit
+        gameState.bullets.splice(i, 1);
+        // Remove wall if destroyed
+        if (wall.health <= 0) {
+          gameState.walls.splice(j, 1);
+        }
+        break;
+      }
+    }
+    
+    // Check bullet collisions with enemies
+    for (let k = gameState.enemies.length - 1; k >= 0; k--) {
+      const enemy = gameState.enemies[k];
+      const bulletRect = {x: bullet.x - bullet.radius, y: bullet.y - bullet.radius, width: bullet.radius*2, height: bullet.radius*2};
+      const enemyRect = {x: enemy.x, y: enemy.y, width: enemy.width, height: enemy.height};
+      if (rectsIntersect(bulletRect, enemyRect)) {
+        enemy.health -= bullet.power;
+        gameState.bullets.splice(i, 1);
+        if (enemy.health <= 0) {
+          gameState.enemies.splice(k, 1);
+        }
+        break;
+      }
+    }
+    
+    // Remove bullet if off screen
+    if (bullet.isOffScreen()) {
+      gameState.bullets.splice(i, 1);
+    }
+  }
+  
+  // Update enemies
+  gameState.enemies.forEach(enemy => enemy.update());
+
+  // Check for player-item collisions
+  for (let i = gameState.items.length - 1; i >= 0; i--) {
+    const item = gameState.items[i];
+    const playerRect = {x: gameState.player.x, y: gameState.player.y, width: gameState.player.width, height: gameState.player.height};
+    const itemRect = {x: item.x, y: item.y, width: item.width, height: item.height};
+    if (rectsIntersect(playerRect, itemRect)) {
+      gameState.player.levelUp();
+      gameState.items.splice(i, 1);
+    }
+  }
+}
+
+// --- Draw Function ---
+function draw() {
+  // Clear the canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // Draw walls
+  gameState.walls.forEach(wall => wall.draw());
+  
+  // Draw items
+  gameState.items.forEach(item => item.draw());
+  
+  // Draw player and enemies
+  gameState.player.draw();
+  gameState.enemies.forEach(enemy => enemy.draw());
+  
+  // Draw bullets
+  gameState.bullets.forEach(bullet => bullet.draw());
+}
+
+// --- Input Handling ---
+window.addEventListener("keydown", function(e) {
+  keys[e.key] = true;
+  // Space bar to shoot
+  if (e.key === " ") {
+    gameState.player.shoot();
+  }
+});
+
+window.addEventListener("keyup", function(e) {
+  keys[e.key] = false;
+});
+
+// --- Start Game ---
+gameState.bullets = [];
+initGame();
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
