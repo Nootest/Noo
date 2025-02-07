@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Touch Typing Trainer - Levels 1 to 100</title>
+  <title>Touch Typing Trainer – Progressive Levels with Bonus Games, Sound & Leaderboard</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -13,49 +13,51 @@
       flex-direction: column;
       align-items: center;
     }
-    header {
-      margin-bottom: 20px;
-      text-align: center;
-    }
-    section {
+    header, section {
+      width: 80%;
+      max-width: 600px;
       background: #fff;
       border: 1px solid #ddd;
       padding: 20px;
-      width: 80%;
-      max-width: 600px;
       border-radius: 4px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       margin-bottom: 20px;
     }
-    h2 {
-      margin-top: 0;
+    header { 
+      text-align: center; 
     }
-    .highlight {
-      background: #ffd700;
-      padding: 2px 4px;
-      border-radius: 3px;
-    }
+    h1 { margin: 0; }
+    h2 { margin-top: 0; }
+    #instruction { margin-bottom: 10px; font-style: italic; }
     #test-text {
       font-size: 20px;
       margin: 15px 0;
       color: #333;
       min-height: 40px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: #fafafa;
     }
+    #test-text span { padding: 2px; }
+    .correct { color: green; }
+    .incorrect { color: red; }
+    .current { border-bottom: 1px solid blue; }
     #user-input {
       width: 100%;
       padding: 10px;
       font-size: 18px;
       border: 1px solid #ddd;
       border-radius: 4px;
-    }
-    #stats {
-      margin-top: 10px;
-      font-size: 16px;
-    }
-    #level-display {
-      font-size: 18px;
-      font-weight: bold;
       margin-bottom: 10px;
+    }
+    #stats { margin-top: 10px; font-size: 16px; }
+    #level-display { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+    /* Button row for normal game */
+    #game-buttons {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
     }
     button {
       margin-top: 10px;
@@ -67,162 +69,547 @@
       color: white;
       cursor: pointer;
     }
-    button:hover {
-      background: #218838;
+    button:hover { background: #218838; }
+    /* Stop Game button styles: red background */
+    #stop-game-btn {
+      background-color: red;
+      color: white;
     }
-    .hidden {
-      display: none;
+    .hidden { display: none; }
+    /* Bonus Game Styles */
+    #bonus-container {
+      position: relative;
+      width: 100%;
+      height: 300px;
+      background: #000;
+      overflow: hidden;
+      margin-top: 10px;
     }
+    .falling-letter {
+      position: absolute;
+      color: #fff;
+      font-size: 24px;
+      font-weight: bold;
+    }
+    /* Explosion animation */
+    @keyframes explode {
+      0% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(2); opacity: 0; }
+    }
+    .explode {
+      animation: explode 0.3s forwards;
+    }
+    #spaceship {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 30px;
+    }
+    /* Final Summary */
+    #final-summary-content ul { list-style-type: disc; margin-left: 20px; }
   </style>
 </head>
 <body>
+  <!-- Header -->
   <header>
     <h1>Touch Typing Trainer</h1>
-    <p>Practice your touch typing skills from beginner finger placement to advanced speed and accuracy challenges (Levels 1-100)!</p>
+    <p>Enhance your typing skills from beginner to advanced levels – with bonus games, sound effects, and leaderboards!</p>
   </header>
 
-  <!-- Lesson section for beginners -->
-  <section id="lesson">
+  <!-- Welcome Screen -->
+  <section id="welcome">
+    <h2>Welcome to Touch Typing Trainer</h2>
+    <p>Please enter your name to begin:</p>
+    <input type="text" id="user-name-input" placeholder="Your Name" />
+    <button id="submit-name-btn">Start</button>
+  </section>
+
+  <!-- Lesson Section -->
+  <section id="lesson" class="hidden">
     <h2>Beginner Lesson: Finger Placement</h2>
     <p>
-      The first step in touch typing is knowing where to place your fingers on the home row. Place your left fingers on <span class="highlight">A, S, D, F</span> and your right fingers on <span class="highlight">J, K, L, ;</span>. 
-    </p>
-    <p>
-      Your index fingers rest on the keys with small raised bumps (<span class="highlight">F</span> for left, <span class="highlight">J</span> for right) so you can locate them without looking. Your thumbs should lightly rest on the space bar.
-    </p>
-    <p>
-      Practice the proper finger placement before moving on to the typing test.
+      For starters, place your left hand on the home row keys: 
+      <span style="background: #ffd700; padding:2px 4px;">A, S, D, F, G</span>
+      and your right hand on: 
+      <span style="background: #ffd700; padding:2px 4px;">J, K, L, ;, H, '</span>
+      (notice the small bumps on F and J that help you locate them without looking).
     </p>
     <button id="start-game-btn">Start Typing Test</button>
   </section>
 
-  <!-- Game section -->
+  <!-- Normal Typing Game Section -->
   <section id="game" class="hidden">
     <div id="level-display">Level: 1</div>
     <h2>Typing Test</h2>
-    <p id="test-text">Loading text...</p>
-    <input type="text" id="user-input" placeholder="Start typing here..." autofocus />
+    <p id="instruction">Type exactly as shown below:</p>
+    <div id="test-text">Loading text...</div>
+    <input type="text" id="user-input" placeholder="Start typing here..." autocomplete="off" />
     <div id="stats">
       <span id="time">Time: 0 s</span> | 
       <span id="wpm">WPM: 0</span> | 
       <span id="accuracy">Accuracy: 100%</span>
     </div>
-    <button id="restart-btn">Restart Level</button>
+    <div id="game-buttons">
+      <button id="restart-btn">Restart Level</button>
+      <button id="stop-game-btn">Stop Game</button>
+    </div>
   </section>
 
+  <!-- Bonus Game Section -->
+  <section id="bonus-game" class="hidden">
+    <h2>Bonus Game</h2>
+    <div id="bonus-container">
+      <div id="spaceship">🚀</div>
+    </div>
+    <div id="bonus-score" style="margin-top: 10px; font-size: 18px; text-align: center;">Score: 0</div>
+  </section>
+
+  <!-- Final Summary Section -->
+  <section id="final-summary" class="hidden">
+    <h2>Final Game Summary</h2>
+    <div id="final-summary-content"></div>
+  </section>
+
+  <!-- Audio Elements with Preload -->
+  <audio id="ok-sound" preload="auto" src="https://actions.google.com/sounds/v1/cartoon/pop.ogg"></audio>
+  <audio id="fault-sound" preload="auto" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
+  <audio id="explode-sound" preload="auto" src="https://actions.google.com/sounds/v1/explosions/explosion.ogg"></audio>
+
   <script>
-    // Global variables for level and timing
-    let currentLevel = 1;
-    const maxLevel = 100;
-    let startTime, interval;
+    /**************** Global Variables ****************/
+    // Character sets for each level group
+    const leftHome   = ["a", "s", "d", "f", "g"];       // Levels 1-10
+    const rightHome  = ["j", "k", "l", ";", "h", "'"];    // Levels 11-20
+    const upperLeft  = ["q", "w", "e", "r", "t"];         // Levels 21-30
+    const upperRight = ["y", "u", "i", "o", "p"];         // Levels 31-40
+    const lowerLeft  = ["z", "x", "c", "v", "b"];         // Levels 41-50
+    const lowerRight = ["n", "m", ",", ".", "/"];         // Levels 51-60 (includes ".")
+    const numbers    = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]; // Levels 61-70
+    const special    = ["!", "@", "#", "$", "%", "^", "&", "*", "(", ")"]; // Levels 71-80
+
+    let currentLevel = 1, maxLevel = 100;
+    let startTime = null, interval = null, started = false, currentText = "";
+    let userName = "Guest";
+    // To record regular level stats
+    let regularStats = [];
+    // To record bonus game stats
+    let bonusStats = [];
+    // For tracking previous input length for sound triggering
+    let prevInputLength = 0;
     
-    // Word bank for generating test texts
-    const wordBank = [
-      "the", "quick", "brown", "fox", "jumps", "over", "lazy", "dog",
-      "hello", "world", "typing", "practice", "keyboard", "learn", "speed", "accuracy",
-      "skill", "challenge", "code", "javascript", "function", "variable", "array",
-      "object", "dynamic", "performance", "progress", "level", "beginner", "advanced",
-      "master", "trainer", "exercise", "complete", "test", "random", "words"
-    ];
+    /**************** DOM Elements ****************/
+    const welcomeSection   = document.getElementById("welcome");
+    const lessonSection    = document.getElementById("lesson");
+    const gameSection      = document.getElementById("game");
+    const bonusGameSection = document.getElementById("bonus-game");
+    const finalSummarySection = document.getElementById("final-summary");
 
-    // DOM elements
-    const lessonSection = document.getElementById("lesson");
-    const gameSection = document.getElementById("game");
-    const startBtn = document.getElementById("start-game-btn");
-    const restartBtn = document.getElementById("restart-btn");
-    const testTextElem = document.getElementById("test-text");
-    const userInput = document.getElementById("user-input");
-    const timeElem = document.getElementById("time");
-    const wpmElem = document.getElementById("wpm");
-    const accuracyElem = document.getElementById("accuracy");
-    const levelDisplay = document.getElementById("level-display");
+    const submitNameBtn    = document.getElementById("submit-name-btn");
+    const userNameInput    = document.getElementById("user-name-input");
+    const startBtn         = document.getElementById("start-game-btn");
+    const restartBtn       = document.getElementById("restart-btn");
+    const stopGameBtn      = document.getElementById("stop-game-btn");
+    const levelDisplay     = document.getElementById("level-display");
+    const testTextElem     = document.getElementById("test-text");
+    const userInput        = document.getElementById("user-input");
+    const timeElem         = document.getElementById("time");
+    const wpmElem          = document.getElementById("wpm");
+    const accuracyElem     = document.getElementById("accuracy");
 
-    // Start the game from lesson
+    /**************** Bonus Game Variables ****************/
+    let bonusGameActive = false;
+    let bonusScore = 0;
+    let bonusLettersSpawned = 0;
+    let bonusLetterArray = [];  // Array of falling letter objects
+    const totalBonusLetters = 20;
+    let spawnInterval; // interval for spawning letters
+
+    /**************** Sound Function ****************/
+    // Create a new Audio object for overlapping playback.
+    function playSound(id) {
+      const src = document.getElementById(id).src;
+      const sound = new Audio(src);
+      sound.play();
+    }
+
+    /**************** Event Listeners ****************/
+    // Allow Enter key in the welcome input to trigger name submission.
+    userNameInput.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        submitNameBtn.click();
+      }
+    });
+
+    // Handle user name submission.
+    submitNameBtn.addEventListener("click", () => {
+      const inputName = userNameInput.value.trim();
+      if (inputName !== "") { 
+        userName = inputName;
+      }
+      welcomeSection.classList.add("hidden");
+      lessonSection.classList.remove("hidden");
+    });
+
+    // Allow Enter key on the lesson start button.
+    startBtn.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        startBtn.click();
+      }
+    });
+
     startBtn.addEventListener("click", () => {
       lessonSection.classList.add("hidden");
       gameSection.classList.remove("hidden");
-      startTest();
+      initializeLevel();
     });
 
-    // Restart the current level
     restartBtn.addEventListener("click", () => {
-      resetTest();
-      startTest();
+      resetLevel();
+      initializeLevel();
     });
 
-    // Generate test text based on current level
-    function generateTestText(level) {
-      // Increase word count with level (from 3 words up to about 36 words by level 100)
-      const wordCount = Math.floor(3 + level / 3);
-      let words = [];
-      for (let i = 0; i < wordCount; i++) {
-        const randIndex = Math.floor(Math.random() * wordBank.length);
-        words.push(wordBank[randIndex]);
-      }
-      let sentence = words.join(" ");
-      sentence = sentence.charAt(0).toUpperCase() + sentence.slice(1) + ".";
-      return sentence;
-    }
+    // Global Stop Game button event.
+    stopGameBtn.addEventListener("click", () => {
+      stopGame();
+    });
 
-    // Start the typing test
-    function startTest() {
-      // Update level display
-      levelDisplay.textContent = "Level: " + currentLevel;
-      // Generate and display text for the current level
-      const currentText = generateTestText(currentLevel);
-      testTextElem.textContent = currentText;
-      userInput.value = "";
-      userInput.focus();
-      // Initialize timing
-      startTime = new Date();
-      clearInterval(interval);
-      interval = setInterval(updateStats.bind(null, currentText), 1000);
-    }
-
-    // Reset stats display
-    function resetTest() {
-      clearInterval(interval);
-      timeElem.textContent = "Time: 0 s";
-      wpmElem.textContent = "WPM: 0";
-      accuracyElem.textContent = "Accuracy: 100%";
-    }
-
-    // Update game statistics: time elapsed, words per minute, and accuracy
-    function updateStats(currentText) {
-      const elapsed = Math.floor((new Date() - startTime) / 1000);
-      timeElem.textContent = "Time: " + elapsed + " s";
-      
-      // Calculate words per minute (WPM)
-      const wordsTyped = userInput.value.trim().split(" ").filter(word => word.length > 0).length;
-      const wpm = elapsed > 0 ? Math.floor((wordsTyped / elapsed) * 60) : 0;
-      wpmElem.textContent = "WPM: " + wpm;
-      
-      // Calculate accuracy by comparing each character typed to the target text
-      let correctChars = 0;
-      const inputText = userInput.value;
-      for (let i = 0; i < inputText.length; i++) {
-        if (inputText[i] === currentText[i]) {
-          correctChars++;
+    // Use keydown on the typing input for immediate sound feedback.
+    userInput.addEventListener("keydown", (e) => {
+      if (e.key.length === 1) {  // Process printable characters only.
+        let idx = userInput.value.length; // keydown fires before the input updates.
+        if (idx < currentText.length) {
+          if (e.key.toLowerCase() === currentText[idx].toLowerCase()) {
+            playSound("ok-sound");
+          } else {
+            playSound("fault-sound");
+          }
         }
       }
-      const accuracy = inputText.length > 0 ? Math.floor((correctChars / inputText.length) * 100) : 100;
-      accuracyElem.textContent = "Accuracy: " + accuracy + "%";
+    });
 
-      // Check if the user has completed the text correctly
+    // Use input event to update highlights and check for completion.
+    userInput.addEventListener("input", () => {
+      updateHighlights();
       if (userInput.value === currentText) {
         clearInterval(interval);
-        // Provide feedback and automatically move to the next level (if any)
         setTimeout(() => {
+          const elapsed = Math.floor((new Date() - startTime) / 1000);
+          const wordsTyped = userInput.value.trim().split(" ").filter(word => word.length > 0).length;
+          const wpm = elapsed > 0 ? Math.floor((wordsTyped / elapsed) * 60) : 0;
+          const accuracy = calculateAccuracy();
+          regularStats.push({ level: currentLevel, time: elapsed, wpm: wpm, accuracy: accuracy });
           alert("Level " + currentLevel + " complete!\nTime: " + elapsed + " seconds\nWPM: " + wpm + "\nAccuracy: " + accuracy + "%");
-          if (currentLevel < maxLevel) {
-            currentLevel++;
-            resetTest();
-            startTest();
+          if (currentLevel % 10 === 0) {
+            startBonusGame();
           } else {
-            alert("Congratulations! You have completed all levels.");
+            if (currentLevel < maxLevel) {
+              currentLevel++;
+              resetLevel();
+              initializeLevel();
+            } else {
+              stopGame();
+            }
           }
         }, 100);
       }
+    });
+
+    // Start timer on first input.
+    userInput.addEventListener("input", () => {
+      if (!started && userInput.value.length > 0) {
+        started = true;
+        startTime = new Date();
+        interval = setInterval(updateStats, 1000);
+      }
+    });
+
+    /**************** Normal Level Functions ****************/
+    function generateTestTextForLevel(level) {
+      let charSet, wordCount, minLen, maxLen;
+      if (level >= 1 && level <= 10) {
+        charSet = leftHome;
+        wordCount = 3; minLen = 2; maxLen = 3;
+      } else if (level >= 11 && level <= 20) {
+        charSet = rightHome;
+        wordCount = 3; minLen = 2; maxLen = 3;
+      } else if (level >= 21 && level <= 30) {
+        charSet = upperLeft;
+        wordCount = 4; minLen = 3; maxLen = 5;
+      } else if (level >= 31 && level <= 40) {
+        charSet = upperRight;
+        wordCount = 4; minLen = 3; maxLen = 5;
+      } else if (level >= 41 && level <= 50) {
+        charSet = lowerLeft;
+        wordCount = 4; minLen = 3; maxLen = 5;
+      } else if (level >= 51 && level <= 60) {
+        charSet = lowerRight;
+        wordCount = 4; minLen = 3; maxLen = 5;
+      } else if (level >= 61 && level <= 70) {
+        charSet = numbers;
+        wordCount = 5; minLen = 3; maxLen = 5;
+      } else if (level >= 71 && level <= 80) {
+        charSet = special;
+        wordCount = 5; minLen = 3; maxLen = 5;
+      } else if (level >= 81 && level <= 100) {
+        charSet = leftHome.concat(rightHome, upperLeft, upperRight, lowerLeft, lowerRight, numbers, special);
+        wordCount = 6; minLen = 3; maxLen = 7;
+      }
+      let words = [];
+      for (let i = 0; i < wordCount; i++) {
+        words.push(generateWord(charSet, minLen, maxLen));
+      }
+      let sentence = words.join(" ");
+      if (charSet.includes(".")) { sentence += "."; }
+      return sentence;
+    }
+
+    function generateWord(charSet, minLen, maxLen) {
+      const len = Math.floor(Math.random() * (maxLen - minLen + 1)) + minLen;
+      let word = "";
+      for (let i = 0; i < len; i++) {
+        word += charSet[Math.floor(Math.random() * charSet.length)];
+      }
+      return word;
+    }
+
+    function renderTestText(text) {
+      testTextElem.innerHTML = "";
+      for (let i = 0; i < text.length; i++) {
+        const span = document.createElement("span");
+        span.textContent = text[i];
+        testTextElem.appendChild(span);
+      }
+    }
+
+    function updateHighlights() {
+      const spans = testTextElem.querySelectorAll("span");
+      const input = userInput.value;
+      for (let i = 0; i < spans.length; i++) {
+        const char = spans[i].textContent;
+        if (i < input.length) {
+          if (input[i] === char) {
+            spans[i].classList.add("correct");
+            spans[i].classList.remove("incorrect");
+          } else {
+            spans[i].classList.add("incorrect");
+            spans[i].classList.remove("correct");
+          }
+        } else {
+          spans[i].classList.remove("correct", "incorrect", "current");
+        }
+      }
+      if (input.length < spans.length) {
+        spans[input.length].classList.add("current");
+      }
+    }
+
+    function calculateAccuracy() {
+      const input = userInput.value;
+      const spans = testTextElem.querySelectorAll("span");
+      let correctChars = 0;
+      for (let i = 0; i < input.length; i++) {
+        if (input[i] === spans[i].textContent) { correctChars++; }
+      }
+      return input.length > 0 ? Math.floor((correctChars / input.length) * 100) : 100;
+    }
+
+    function updateStats() {
+      const elapsed = Math.floor((new Date() - startTime) / 1000);
+      timeElem.textContent = "Time: " + elapsed + " s";
+      const wordsTyped = userInput.value.trim().split(" ").filter(word => word.length > 0).length;
+      const wpm = elapsed > 0 ? Math.floor((wordsTyped / elapsed) * 60) : 0;
+      wpmElem.textContent = "WPM: " + wpm;
+      const accuracy = calculateAccuracy();
+      accuracyElem.textContent = "Accuracy: " + accuracy + "%";
+    }
+
+    function initializeLevel() {
+      levelDisplay.textContent = "Level: " + currentLevel;
+      currentText = generateTestTextForLevel(currentLevel);
+      renderTestText(currentText);
+      userInput.value = "";
+      userInput.focus();
+      clearInterval(interval);
+      startTime = null;
+      started = false;
+      timeElem.textContent = "Time: 0 s";
+      wpmElem.textContent = "WPM: 0";
+      accuracyElem.textContent = "Accuracy: 100%";
+      prevInputLength = 0;
+    }
+
+    function resetLevel() {
+      clearInterval(interval);
+      userInput.value = "";
+      started = false;
+      timeElem.textContent = "Time: 0 s";
+      wpmElem.textContent = "WPM: 0";
+      accuracyElem.textContent = "Accuracy: 100%";
+      updateHighlights();
+    }
+
+    /**************** Bonus Game Functions ****************/
+    function getBonusLetterSet(level) {
+      if (level <= 10) return leftHome;
+      else if (level <= 20) return rightHome;
+      else if (level <= 30) return upperLeft;
+      else if (level <= 40) return upperRight;
+      else if (level <= 50) return lowerLeft;
+      else if (level <= 60) return lowerRight;
+      else if (level <= 70) return numbers;
+      else if (level <= 80) return special;
+      else return leftHome.concat(rightHome, upperLeft, upperRight, lowerLeft, lowerRight, numbers, special);
+    }
+
+    function startBonusGame() {
+      bonusGameActive = true;
+      bonusScore = 0;
+      bonusLettersSpawned = 0;
+      bonusLetterArray = [];
+      document.getElementById("bonus-score").textContent = "Score: 0";
+      gameSection.classList.add("hidden");
+      bonusGameSection.classList.remove("hidden");
+      spawnBonusLetter();
+      spawnInterval = setInterval(() => {
+        if (bonusLettersSpawned < totalBonusLetters) {
+          spawnBonusLetter();
+        } else {
+          clearInterval(spawnInterval);
+        }
+      }, 800);
+      bonusGameLoop();
+      document.addEventListener("keydown", bonusKeyHandler);
+    }
+
+    function spawnBonusLetter() {
+      const bonusContainer = document.getElementById("bonus-container");
+      const bonusSet = getBonusLetterSet(currentLevel);
+      let letter = bonusSet[Math.floor(Math.random() * bonusSet.length)];
+      let letterDiv = document.createElement("div");
+      letterDiv.classList.add("falling-letter");
+      letterDiv.textContent = letter;
+      const containerWidth = bonusContainer.offsetWidth;
+      let x = Math.random() * (containerWidth - 30);
+      letterDiv.style.left = x + "px";
+      letterDiv.style.top = "0px";
+      bonusContainer.appendChild(letterDiv);
+      bonusLetterArray.push({ element: letterDiv, letter: letter, x: x, y: 0 });
+      bonusLettersSpawned++;
+    }
+
+    function bonusGameLoop() {
+      if (!bonusGameActive) return;
+      const bonusContainer = document.getElementById("bonus-container");
+      const containerHeight = bonusContainer.offsetHeight;
+      for (let i = bonusLetterArray.length - 1; i >= 0; i--) {
+        let obj = bonusLetterArray[i];
+        obj.y += 1;
+        obj.element.style.top = obj.y + "px";
+        if (obj.y > containerHeight - 30) {
+          obj.element.remove();
+          bonusLetterArray.splice(i, 1);
+        }
+      }
+      if (bonusLettersSpawned >= totalBonusLetters && bonusLetterArray.length === 0) {
+        finishBonusGame();
+      } else {
+        requestAnimationFrame(bonusGameLoop);
+      }
+    }
+
+    function bonusKeyHandler(e) {
+      let key = e.key.toLowerCase();
+      for (let i = 0; i < bonusLetterArray.length; i++) {
+        if (bonusLetterArray[i].letter === key) {
+          let letterElement = bonusLetterArray[i].element;
+          playSound("explode-sound");
+          letterElement.classList.add("explode");
+          setTimeout(() => {
+            letterElement.remove();
+          }, 300);
+          bonusLetterArray.splice(i, 1);
+          bonusScore++;
+          document.getElementById("bonus-score").textContent = "Score: " + bonusScore;
+          break;
+        }
+      }
+    }
+
+    function finishBonusGame() {
+      bonusGameActive = false;
+      document.removeEventListener("keydown", bonusKeyHandler);
+      bonusGameSection.classList.add("hidden");
+      gameSection.classList.remove("hidden");
+      bonusStats.push({ level: currentLevel, score: bonusScore, total: totalBonusLetters });
+      if (currentLevel < maxLevel) {
+        currentLevel++;
+        resetLevel();
+        initializeLevel();
+      } else {
+        stopGame();
+      }
+    }
+
+    /**************** Global Stop Game Function ****************/
+    function stopGame() {
+      clearInterval(interval);
+      clearInterval(spawnInterval);
+      document.removeEventListener("keydown", bonusKeyHandler);
+      bonusGameActive = false;
+      gameSection.classList.add("hidden");
+      bonusGameSection.classList.add("hidden");
+      showFinalSummary();
+    }
+
+    /**************** Leaderboard Functions ****************/
+    function updateLeaderboard(name, score) {
+      let leaderboard = JSON.parse(localStorage.getItem("typingGameLeaderboard") || "[]");
+      leaderboard.push({ name: name, score: score });
+      leaderboard.sort((a, b) => b.score - a.score);
+      leaderboard = leaderboard.slice(0, 10);
+      localStorage.setItem("typingGameLeaderboard", JSON.stringify(leaderboard));
+      return leaderboard;
+    }
+
+    /**************** Final Summary Function ****************/
+    function showFinalSummary() {
+      gameSection.classList.add("hidden");
+      bonusGameSection.classList.add("hidden");
+      let finalContent = "";
+      let totalTime = 0, totalWPM = 0, totalAccuracy = 0;
+      regularStats.forEach(stat => {
+        totalTime += stat.time;
+        totalWPM += stat.wpm;
+        totalAccuracy += stat.accuracy;
+      });
+      let avgTime = regularStats.length ? (totalTime / regularStats.length).toFixed(2) : 0;
+      let avgWPM = regularStats.length ? (totalWPM / regularStats.length).toFixed(2) : 0;
+      let avgAccuracy = regularStats.length ? (totalAccuracy / regularStats.length).toFixed(2) : 0;
+      let totalBonusScore = 0;
+      bonusStats.forEach(stat => { totalBonusScore += stat.score; });
+      let avgBonus = bonusStats.length ? (totalBonusScore / bonusStats.length).toFixed(2) : 0;
+      
+      finalContent += "<p><strong>User:</strong> " + userName + "</p>";
+      finalContent += "<p><strong>Total Levels Completed:</strong> " + currentLevel + "</p>";
+      finalContent += "<h3>Regular Level Performance:</h3><ul>";
+      finalContent += "<li>Average Time per Level: " + avgTime + " seconds</li>";
+      finalContent += "<li>Average WPM: " + avgWPM + "</li>";
+      finalContent += "<li>Average Accuracy: " + avgAccuracy + "%</li></ul>";
+      finalContent += "<h3>Bonus Game Performance:</h3><ul>";
+      finalContent += "<li>Total Bonus Games: " + bonusStats.length + "</li>";
+      finalContent += "<li>Total Bonus Points: " + totalBonusScore + " (out of " + (bonusStats.length * totalBonusLetters) + ")</li>";
+      finalContent += "<li>Average Bonus Score: " + avgBonus + "</li></ul>";
+      
+      let leaderboard = updateLeaderboard(userName, totalBonusScore);
+      finalContent += "<h3>Leaderboard (Top 10 by Bonus Score):</h3><ol>";
+      leaderboard.forEach(entry => {
+        finalContent += "<li>" + entry.name + " – " + entry.score + "</li>";
+      });
+      finalContent += "</ol>";
+      
+      document.getElementById("final-summary-content").innerHTML = finalContent;
+      finalSummarySection.classList.remove("hidden");
     }
   </script>
 </body>
