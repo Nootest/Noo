@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Space Shooter Game</title>
+  <!-- Load Howler.js from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
+  <style>
+    body { 
+      margin: 0; 
+      overflow: hidden; 
+      background: #000; 
+      color: #fff; 
+    }
+    /* The canvas (game board) sits behind the overlays */
+    #gameCanvas { 
+      background: #000; 
+      display: block; 
+      margin: 0 auto; 
+      position: relative; 
+      z-index: 1; 
+    }
+    /* Overlay screens (start and game over) */
+    #startScreen, #gameOverScreen {
+      position: absolute; 
+      top: 0; 
+      left: 0;
+      width: 100%; 
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex; 
+      flex-direction: column;
+      align-items: center; 
+      justify-content: center;
+      z-index: 20;
+    }
+    .hidden { 
+      display: none !important; 
+    }
+    input { 
+      padding: 5px; 
+      font-size: 16px; 
+    }
+    button { 
+      padding: 10px 20px; 
+      font-size: 16px; 
+      margin-top: 10px; 
+    }
+  </style>
+</head>
+<body>
+  <!-- Start Screen -->
+  <div id="startScreen">
+    <h1>Space Shooter</h1>
+    <label for="playerName">Enter your name:</label>
+    <input type="text" id="playerName" placeholder="Player Name" />
+    <button id="startBtn">Start Game</button>
+  </div>
+  
+  <!-- Game Canvas -->
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  
+  <!-- Game Over / Hall of Fame Screen -->
+  <div id="gameOverScreen" class="hidden">
+    <h1>Game Over</h1>
+    <h2 id="resultMessage"></h2>
+    <h3>Hall of Fame</h3>
+    <ol id="hallOfFame"></ol>
+    <button id="restartBtn">Restart Game</button>
+  </div>
+
+  <script>
+    // Sound definitions using Howler.js
+    const shootSound = new Howl({
+      src: ['shoot.mp3'],
+      volume: 0.1
+    });
+    const explosionSound = new Howl({
+      src: ['explosion.mp3'],
+      volume: 0.5
+    });
+    const deadSound = new Howl({
+      src: ['dead.mp3']
+    });
+    const bgMusic = new Howl({
+      src: ['background.mp3'],
+      loop: true,
+      volume: 0.5,
+    });
+    // New sound effects:
+    const upSound = new Howl({
+      src: ['up.mp3']
+    });
+    const hpSound = new Howl({
+      src: ['hp.mp3']
+    });
+
+    // Global power-up spawn timers (in ms)
+    let lastUpSpawn = 0;
+    let lastHPSpawn = 0;
+
+    // Get references to HTML elements
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const startBtn = document.getElementById('startBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const playerNameInput = document.getElementById('playerName');
+    const hallOfFameList = document.getElementById('hallOfFame');
+    const resultMessage = document.getElementById('resultMessage');
+
+    // Global game variables
+    let gameTime = 0;
+    let level = 1;
+    let score = 0;
+    let lives = 3;
+    let gameOver = false;
+    let playerName = "";
+    let gameLoopId;
+    let bossActive = false;  // When boss is active, normal enemy spawning stops.
+
+    // Arrays to hold game objects
+    let enemies = [];
+    let bullets = [];
+    let enemyBullets = [];
+    let itemBoxes = [];
+    let hpBoxes = [];
+    let stars = [];
+    let explosions = [];
+    let keys = {};
+
+    // ---------------------------
+    // Helper Functions
+    // ---------------------------
+    // Draw a star shape (used for up box)
+    function drawStar(cx, cy, spikes, outerRadius, innerRadius, color) {
+      let rot = Math.PI / 2 * 3;
+      let x = cx;
+      let y = cy;
+      let step = Math.PI / spikes;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - outerRadius);
+      for (let i = 0; i < spikes; i++) {
+          x = cx + Math.cos(rot) * outerRadius;
+          y = cy + Math.sin(rot) * outerRadius;
+          ctx.lineTo(x, y);
+          rot += step;
+          x = cx + Math.cos(rot) * innerRadius;
+          y = cy + Math.sin(rot) * innerRadius;
+          ctx.lineTo(x, y);
+          rot += step;
+      }
+      ctx.lineTo(cx, cy - outerRadius);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+
+    // Draw a heart shape (used for HP box)
+    function drawHeart(cx, cy, size, color) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.beginPath();
+      let topCurveHeight = size * 0.3;
+      ctx.moveTo(0, topCurveHeight);
+      ctx.bezierCurveTo(0, 0, -size/2, 0, -size/2, topCurveHeight);
+      ctx.bezierCurveTo(-size/2, (size+topCurveHeight)/2, 0, size, 0, size);
+      ctx.bezierCurveTo(0, size, size/2, (size+topCurveHeight)/2, size/2, topCurveHeight);
+      ctx.bezierCurveTo(size/2, 0, 0, 0, 0, topCurveHeight);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // ---------------------------
+    // Background Star Class
+    // ---------------------------
+    class Star {
+      constructor(x, y, radius, speed) {
+        this.x = x;
+        this.y = y;
+        this.radius = radius;
+        this.speed = speed;
+      }
+      update() {
+        this.y += this.speed;
+        if (this.y > canvas.height) {
+          this.y = 0;
+          this.x = Math.random() * canvas.width;
+        }
+      }
+      draw() {
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+
+    function initStars() {
+      stars = [];
+      const starCount = 100;
+      for (let i = 0; i < starCount; i++) {
+        let x = Math.random() * canvas.width;
+        let y = Math.random() * canvas.height;
+        let radius = Math.random() * 2;
+        let speed = Math.random() * 1 + 0.5;
+        stars.push(new Star(x, y, radius, speed));
+      }
+    }
+
+    // ---------------------------
+    // Explosion Particle Effects
+    // ---------------------------
+    class Explosion {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.particles = [];
+        this.life = 0;
+        this.maxLife = 30;
+        for (let i = 0; i < 20; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = Math.random() * 3 + 1;
+          this.particles.push({
+            x: x,
+            y: y,
+            dx: Math.cos(angle) * speed,
+            dy: Math.sin(angle) * speed,
+            radius: Math.random() * 2 + 1,
+            alpha: 1,
+            life: 0,
+            maxLife: Math.random() * 20 + 10
+          });
+        }
+      }
+      update() {
+        this.life++;
+        this.particles.forEach(p => {
+          p.x += p.dx;
+          p.y += p.dy;
+          p.life++;
+          p.alpha = Math.max(0, 1 - p.life / p.maxLife);
+        });
+      }
+      draw() {
+        this.particles.forEach(p => {
+          ctx.fillStyle = 'rgba(255, 165, 0, ' + p.alpha + ')';
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2);
+          ctx.fill();
+        });
+      }
+      isDone() {
+        return this.life > this.maxLife;
+      }
+    }
+
+    // ---------------------------
+    // Game Object Classes
+    // ---------------------------
+    class Player {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.width = 40;
+        this.height = 40;
+        this.hp = 100;
+        this.maxHp = 100;
+        this.speed = 5;
+        this.shotDelay = 300; // Default delay between shots in ms.
+      }
+      draw() {
+        ctx.fillStyle = '#0f0';
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y - this.height/2);
+        ctx.lineTo(this.x - this.width/2, this.y + this.height/2);
+        ctx.lineTo(this.x + this.width/2, this.y + this.height/2);
+        ctx.closePath();
+        ctx.fill();
+        // Draw the HP bar beneath the ship.
+        let barY = this.y + this.height/2 + 5;
+        ctx.fillStyle = '#f00';
+        ctx.fillRect(this.x - this.width/2, barY, this.width, 5);
+        ctx.fillStyle = '#0f0';
+        ctx.fillRect(this.x - this.width/2, barY, this.width*(this.hp/this.maxHp), 5);
+      }
+      update() {
+        if (keys['ArrowLeft'] && this.x - this.width/2 > 0) this.x -= this.speed;
+        if (keys['ArrowRight'] && this.x + this.width/2 < canvas.width) this.x += this.speed;
+        if (keys['ArrowUp'] && this.y - this.height/2 > 0) this.y -= this.speed;
+        // Restrict downward movement so that the ship never goes too low.
+        if (keys['ArrowDown'] && this.y + this.height/2 < canvas.height - 15) this.y += this.speed;
+      }
+    }
+
+    class Enemy {
+      constructor(x, y, type) {
+        this.x = x;
+        this.y = y;
+        this.type = type;
+        switch(type) {
+          case "veryEasy":
+            this.width = 30;
+            this.height = 30;
+            this.hp = 20 + level*2;
+            this.maxHp = this.hp;
+            this.speed = 3;
+            break;
+          case "easy":
+            this.width = 30;
+            this.height = 30;
+            this.hp = 30 + level*5;
+            this.maxHp = this.hp;
+            this.speed = 3;
+            break;
+          case "medium":
+            this.width = 30;
+            this.height = 30;
+            this.hp = 50 + level*5;
+            this.maxHp = this.hp;
+            this.speed = 2.5;
+            break;
+          case "boss":
+            this.width = 80;
+            this.height = 80;
+            // Boss HP: base 5000, multiplied by 1.5^(floor(level/5)) then reduced by 50%.
+            this.hp = 5000 * Math.pow(1.5, Math.floor(level/5)) * 0.5;
+            this.maxHp = this.hp;
+            this.dx = 2;  // Horizontal speed.
+            this.y = 50;  // Fixed vertical position.
+            break;
+          default:
+            this.width = 30;
+            this.height = 30;
+            this.hp = 30 + level*5;
+            this.maxHp = this.hp;
+            this.speed = 3;
+            break;
+        }
+        this.shootProbability = (type === "medium") ? 0.01 : (type === "boss" ? 0.05 : 0);
+      }
+      draw() {
+        if (this.type === "veryEasy") {
+          ctx.fillStyle = '#00f';
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.width/2, 0, Math.PI*2);
+          ctx.fill();
+        } else if (this.type === "easy") {
+          ctx.fillStyle = '#f00';
+          ctx.fillRect(this.x - this.width/2, this.y - this.height/2, this.width, this.height);
+        } else if (this.type === "medium") {
+          ctx.fillStyle = '#ff0';
+          ctx.beginPath();
+          ctx.moveTo(this.x, this.y - this.height/2);
+          ctx.lineTo(this.x - this.width/2, this.y + this.height/2);
+          ctx.lineTo(this.x + this.width/2, this.y + this.height/2);
+          ctx.closePath();
+          ctx.fill();
+        } else if (this.type === "boss") {
+          ctx.fillStyle = '#ff0';
+          ctx.fillRect(this.x - this.width/2, this.y - this.height/2, this.width, this.height);
+        }
+        ctx.fillStyle = '#f00';
+        ctx.fillRect(this.x - this.width/2, this.y + this.height/2 + 3, this.width, 4);
+        ctx.fillStyle = '#0f0';
+        ctx.fillRect(this.x - this.width/2, this.y + this.height/2 + 3, this.width*(this.hp/this.maxHp), 4);
+      }
+      update() {
+        if (this.type === "boss") {
+          // Boss moves only horizontally at the top.
+          this.y = 50;
+          this.x += this.dx;
+          if (this.x < this.width/2 || this.x > canvas.width - this.width/2) {
+              this.dx = -this.dx;
+          }
+          if (Math.random() < this.shootProbability) {
+              // Boss fires 3 vertical lines of bullets (rain shower pattern).
+              const offsets = [-20, 0, 20];
+              offsets.forEach(off => {
+                enemyBullets.push(new Bullet(this.x + off, this.y + this.height/2, 0, 4, false));
+              });
+          }
+        } else {
+          this.y += this.speed;
+          if (this.type === "medium") {
+              this.x += Math.sin(this.y/50);
+              if (Math.random() < this.shootProbability) {
+                  enemyBullets.push(new Bullet(this.x, this.y + this.height/2, 0, 4, false));
+              }
+          }
+        }
+      }
+    }
+
+    class Bullet {
+      constructor(x, y, dx, dy, isPlayer = true) {
+        this.x = x;
+        this.y = y;
+        this.dx = dx;
+        this.dy = dy;
+        this.radius = 5;
+        this.isPlayer = isPlayer;
+      }
+      draw() {
+        ctx.fillStyle = this.isPlayer ? '#0ff' : '#fff';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+        ctx.fill();
+      }
+      update() {
+        this.x += this.dx;
+        this.y += this.dy;
+      }
+    }
+
+    // Up Box: green star that increases player's shooting speed (reduces shotDelay).
+    class ItemBox {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.dy = 2;
+      }
+      draw() {
+        drawStar(this.x, this.y, 5, 10, 5, '#0f0');
+        ctx.fillStyle = '#000';
+        ctx.font = "10px Arial";
+        ctx.fillText("up", this.x - 8, this.y + 3);
+      }
+      update() {
+        this.y += this.dy;
+      }
+    }
+
+    // HP Box: red heart shape.
+    class HPBox {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.dy = 2;
+      }
+      draw() {
+        drawHeart(this.x, this.y, 20, '#f00');
+      }
+      update() {
+        this.y += this.dy;
+      }
+    }
+
+    // ---------------------------
+    // Event Listeners for Input
+    // ---------------------------
+    window.addEventListener('keydown', (e) => { keys[e.key] = true; });
+    window.addEventListener('keyup', (e) => { keys[e.key] = false; });
+
+    // ---------------------------
+    // Spawning Functions
+    // ---------------------------
+    function spawnEnemy() {
+      if (bossActive) return;
+      const x = Math.random() * (canvas.width - 40) + 20;
+      const y = -20;
+      let rand = Math.random();
+      let type;
+      if (rand < 0.4) type = "veryEasy";
+      else if (rand < 0.8) type = "easy";
+      else type = "medium";
+      enemies.push(new Enemy(x, y, type));
+    }
+
+    function spawnBoss() {
+      enemies = [];
+      bossActive = true;
+      const x = canvas.width/2;
+      enemies.push(new Enemy(x, 50, "boss"));
+    }
+
+    // Up box spawn rate reduced by 50% (from 0.005 to 0.0025) and cooldown of 10 sec.
+    function spawnItemBoxes() {
+      let now = Date.now();
+      if (now - lastUpSpawn > 10000 && Math.random() < 0.0025) {
+        const x = Math.random() * (canvas.width - 20) + 10;
+        itemBoxes.push(new ItemBox(x, -10));
+        lastUpSpawn = now;
+      }
+    }
+
+    // Reduce HP box spawn rate by half (from 0.003 to 0.0015) and cooldown of 10 sec.
+    function spawnHPBoxes() {
+      let now = Date.now();
+      if (now - lastHPSpawn > 10000 && Math.random() < 0.0015) {
+        const x = Math.random() * (canvas.width - 20) + 10;
+        hpBoxes.push(new HPBox(x, -10));
+        lastHPSpawn = now;
+      }
+    }
+
+    // ---------------------------
+    // Main Game Loop
+    // ---------------------------
+    function updateGame() {
+      if (gameOver) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      stars.forEach(star => {
+        star.update();
+        star.draw();
+      });
+      
+      player.update();
+      player.draw();
+
+      bullets.forEach((bullet, i) => {
+        bullet.update();
+        bullet.draw();
+        if (bullet.x < 0 || bullet.x > canvas.width || bullet.y < 0 || bullet.y > canvas.height) {
+          bullets.splice(i, 1);
+        }
+      });
+
+      enemyBullets.forEach((bullet, i) => {
+        bullet.update();
+        bullet.draw();
+        if (bullet.x < 0 || bullet.x > canvas.width || bullet.y < 0 || bullet.y > canvas.height) {
+          enemyBullets.splice(i, 1);
+        }
+        if (Math.hypot(bullet.x - player.x, bullet.y - player.y) < bullet.radius + player.width/2) {
+          player.hp -= 10;
+          enemyBullets.splice(i, 1);
+          if (player.hp <= 0) loseLife();
+        }
+      });
+
+      enemies.forEach((enemy, eIndex) => {
+        enemy.update();
+        enemy.draw();
+        bullets.forEach((bullet, bIndex) => {
+          if (bullet.x > enemy.x - enemy.width/2 && bullet.x < enemy.x + enemy.width/2 &&
+              bullet.y > enemy.y - enemy.height/2 && bullet.y < enemy.y + enemy.height/2) {
+            enemy.hp -= 20;
+            bullets.splice(bIndex, 1);
+            if (enemy.hp <= 0) {
+              score += (enemy.type === "boss") ? 100 : 20;
+              explosions.push(new Explosion(enemy.x, enemy.y));
+              explosionSound.play();
+              if (enemy.type === "boss") {
+                bossActive = false;
+              }
+              enemies.splice(eIndex, 1);
+            }
+          }
+        });
+        if (enemy.x + enemy.width/2 > player.x - player.width/2 &&
+            enemy.x - enemy.width/2 < player.x + player.width/2 &&
+            enemy.y + enemy.height/2 > player.y - player.height/2 &&
+            enemy.y - enemy.height/2 < player.y + player.height/2) {
+          player.hp -= 30;
+          enemies.splice(eIndex, 1);
+          if (player.hp <= 0) loseLife();
+        }
+      });
+
+      itemBoxes.forEach((box, i) => {
+        box.update();
+        box.draw();
+        if (box.y > canvas.height + 10) {
+          itemBoxes.splice(i, 1);
+        }
+        if (box.x > player.x - player.width/2 && box.x < player.x + player.width/2 &&
+            box.y > player.y - player.height/2 && box.y < player.y + player.height/2) {
+          // Reduce shotDelay by 50ms, minimum 50ms.
+          player.shotDelay = Math.max(50, player.shotDelay - 50);
+          itemBoxes.splice(i, 1);
+          upSound.play();
+        }
+      });
+
+      hpBoxes.forEach((box, i) => {
+        box.update();
+        box.draw();
+        if (box.y > canvas.height + 10) {
+          hpBoxes.splice(i, 1);
+        }
+        if (box.x > player.x - player.width/2 && box.x < player.x + player.width/2 &&
+            box.y > player.y - player.height/2 && box.y < player.y + player.height/2) {
+          player.hp = Math.min(player.maxHp, player.hp + 20);
+          hpBoxes.splice(i, 1);
+          hpSound.play();
+        }
+      });
+
+      explosions.forEach((explosion, i) => {
+        explosion.update();
+        explosion.draw();
+        if (explosion.isDone()) {
+          explosions.splice(i, 1);
+        }
+      });
+
+      if (!bossActive && Math.random() < 0.02) spawnEnemy();
+      spawnItemBoxes();
+      spawnHPBoxes();
+
+      if (keys[' ']) {
+        if (!player.lastBulletTime || Date.now() - player.lastBulletTime > player.shotDelay) {
+          bullets.push(new Bullet(player.x, player.y - player.height/2, 0, -6, true));
+          player.lastBulletTime = Date.now();
+          shootSound.play();
+        }
+      }
+
+      // Only update gameTime (and level) if boss is not active.
+      if (!bossActive) {
+        gameTime += 16.67;
+        if (gameTime > 30000) {
+          level++;
+          gameTime = 0;
+          if (level % 5 === 0) {
+            spawnBoss();
+          }
+        }
+      }
+
+      ctx.fillStyle = '#fff';
+      ctx.font = "20px Arial";
+      ctx.fillText("Score: " + score, 10, 25);
+      ctx.fillText("Lives: " + lives, 10, 50);
+      ctx.fillText("Level: " + level, 10, 75);
+      ctx.fillText("Shot Delay: " + player.shotDelay + "ms", 10, 100);
+
+      if (level === 50 && !enemies.some(e => e.type === "boss")) {
+        endGame(true);
+        return;
+      }
+
+      gameLoopId = requestAnimationFrame(updateGame);
+    }
+
+    // ---------------------------
+    // Life and Game Over Handling
+    // ---------------------------
+    function loseLife() {
+      deadSound.play();
+      lives--;
+      if (lives > 0) {
+        player.hp = player.maxHp;
+        player.x = canvas.width/2;
+        player.y = canvas.height - 50;
+        // Reset shotDelay to default when player dies.
+        player.shotDelay = 300;
+      } else {
+        endGame(false);
+      }
+    }
+
+    function endGame(win) {
+      gameOver = true;
+      cancelAnimationFrame(gameLoopId);
+      gameOverScreen.classList.remove('hidden');
+      resultMessage.textContent = win ? "You Win!" : "Game Over!";
+      bgMusic.stop();
+      updateHallOfFame();
+    }
+
+    // ---------------------------
+    // Hall of Fame
+    // ---------------------------
+    function updateHallOfFame() {
+      let hall = JSON.parse(localStorage.getItem('hallOfFame')) || [];
+      hall.push({ name: playerName, score: score });
+      hall.sort((a, b) => b.score - a.score);
+      hall = hall.slice(0, 10);
+      localStorage.setItem('hallOfFame', JSON.stringify(hall));
+      hallOfFameList.innerHTML = "";
+      hall.forEach(entry => {
+        const li = document.createElement('li');
+        li.textContent = entry.name + " - " + entry.score;
+        hallOfFameList.appendChild(li);
+      });
+    }
+
+    // ---------------------------
+    // Game Start / Restart
+    // ---------------------------
+    function startGame() {
+      level = 1;
+      score = 0;
+      lives = 3;
+      gameTime = 0;
+      enemies = [];
+      bullets = [];
+      enemyBullets = [];
+      itemBoxes = [];
+      hpBoxes = [];
+      explosions = [];
+      gameOver = false;
+      bossActive = false;
+      player = new Player(canvas.width/2, canvas.height - 50);
+      initStars();
+      // Initialize power-up spawn timers.
+      lastUpSpawn = Date.now();
+      lastHPSpawn = Date.now();
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      bgMusic.play();
+      updateGame();
+    }
+
+    startBtn.addEventListener('click', () => {
+      playerName = playerNameInput.value || "Anonymous";
+      startGame();
+    });
+    restartBtn.addEventListener('click', () => {
+      startGame();
+    });
+  </script>
+</body>
+</html>
