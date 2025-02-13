@@ -11,6 +11,7 @@
       overflow: hidden; 
       background: #000; 
       color: #fff; 
+      font-family: Arial, sans-serif;
     }
     /* The canvas (game board) sits behind the overlays */
     #gameCanvas { 
@@ -33,6 +34,9 @@
       align-items: center; 
       justify-content: center;
       z-index: 20;
+      padding: 20px;
+      box-sizing: border-box;
+      text-align: center;
     }
     .hidden { 
       display: none !important; 
@@ -40,18 +44,41 @@
     input { 
       padding: 5px; 
       font-size: 16px; 
+      margin: 10px 0;
     }
     button { 
       padding: 10px 20px; 
       font-size: 16px; 
       margin-top: 10px; 
     }
+    .instructions {
+      max-width: 600px;
+      margin-bottom: 20px;
+      text-align: left;
+      font-size: 16px;
+    }
   </style>
 </head>
 <body>
-  <!-- Start Screen -->
+  <!-- Start Screen with Instructions -->
   <div id="startScreen">
     <h1>Space Shooter</h1>
+    <div class="instructions">
+      <h2>How to Play</h2>
+      <p>
+        Use the arrow keys to move your spaceship. Press the spacebar to shoot.
+      </p>
+      <p>
+        <strong>Rules:</strong><br>
+        - Your spaceship is equipped with a health bar. Watch it carefully!<br>
+        - Power-ups (Up Box) will increase your shooting speed, while HP Boxes restore your health.<br>
+        - Bosses will appear every 5 levels, and you'll need to defeat them to continue.<br>
+        - The game will get progressively harder with each level. You have 3 lives.
+      </p>
+      <p>
+        Defeat the final boss at level 50 to win the game. If you lose all your lives, it's Game Over!
+      </p>
+    </div>
     <label for="playerName">Enter your name:</label>
     <input type="text" id="playerName" placeholder="Player Name" />
     <button id="startBtn">Start Game</button>
@@ -361,11 +388,9 @@
         if (this.type === "veryEasy") {
           ctx.drawImage(enemy1Image, this.x - this.width/2, this.y - this.height/2, this.width, this.height);
         } else if (this.type === "easy") {
-          // For "easy" enemy, use enemy3.png tinted red.
+          // Use enemy3.png tinted red for the "easy" enemy.
           ctx.save();
-          // Draw enemy3.png normally.
           ctx.drawImage(enemy3Image, this.x - this.width/2, this.y - this.height/2, this.width, this.height);
-          // Set composite mode to tint the drawn image red.
           ctx.globalCompositeOperation = "source-atop";
           ctx.fillStyle = "red";
           ctx.fillRect(this.x - this.width/2, this.y - this.height/2, this.width, this.height);
@@ -376,7 +401,7 @@
         } else if (this.type === "boss") {
           ctx.save();
           ctx.filter = "hue-rotate(" + this.hueRotate + "deg)";
-          // Process the boss image to remove white background if not already processed.
+          // Process boss image to remove white background if necessary.
           if (!this.processedImage) {
             let offCanvas = document.createElement("canvas");
             offCanvas.width = this.width;
@@ -392,7 +417,6 @@
               }
             }
             offCtx.putImageData(imageData, 0, 0);
-            // Cache the processed image.
             this.processedImage = new Image();
             this.processedImage.src = offCanvas.toDataURL();
           }
