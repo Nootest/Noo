@@ -66,17 +66,16 @@
     <div class="instructions">
       <h2>How to Play</h2>
       <p>
-        Use the arrow keys to move your spaceship. Press the spacebar to shoot.
+        Use the arrow keys to move your spaceship and the spacebar to shoot.
       </p>
       <p>
         <strong>Rules:</strong><br>
-        - Your spaceship is equipped with a health bar. Watch it carefully!<br>
-        - Power-ups (Up Box) will increase your shooting speed, while HP Boxes restore your health.<br>
-        - Bosses will appear every 5 levels, and you'll need to defeat them to continue.<br>
-        - The game will get progressively harder with each level. You have 3 lives.
-      </p>
-      <p>
-        Defeat the final boss at level 50 to win the game. If you lose all your lives, it's Game Over!
+        - Your spaceship has a health bar shown beneath it. Keep an eye on it!<br>
+        - Collect Up Boxes (green star) to improve your shooting. The first two Up Boxes increase your gun from 1 to 2 and then 2 to 3 firing lines. Once you have 3 gun lines, further Up Boxes reduce your shot delay by 50 ms (minimum 100 ms).<br>
+        - Collect HP Boxes (red heart) to restore your health.<br>
+        - Collect Bomb Boxes (magenta square with "B") to gain bombs. Bombs are shown in the top left as "Bomb: [count]".<br>
+        - Press the B key to use a bomb. When used, a bomb destroys all non-boss enemies on the screen, plays a bomb sound, and flashes the screen briefly.<br>
+        - Bosses appear every 5 levels. Defeat the final boss at level 50 to win.
       </p>
     </div>
     <label for="playerName">Enter your name:</label>
@@ -131,17 +130,33 @@
       loop: true,
       volume: 0.5,
     });
-    // Additional sound effects for power-up pickups.
+    // Additional sound effects.
     const upSound = new Howl({
       src: ['up.mp3']
     });
     const hpSound = new Howl({
       src: ['hp.mp3']
     });
+    const bombSound = new Howl({
+      src: ['bomb.mp3']
+    });
     
     // Global power-up spawn timers (in ms)
     let lastUpSpawn = 0;
     let lastHPSpawn = 0;
+    let lastBombSpawn = 0;
+    
+    // Global bomb count.
+    let bombCount = 0;
+    
+    // Flag for bomb key to prevent multiple triggers.
+    let bombKeyDown = false;
+    
+    // Array for bomb boxes.
+    let bombBoxes = [];
+    
+    // Global variable for screen flash alpha.
+    let flashAlpha = 0;
     
     // Get references to HTML elements
     const canvas = document.getElementById('gameCanvas');
@@ -177,7 +192,6 @@
     // ---------------------------
     // Helper Functions
     // ---------------------------
-    // Draw a star shape (used for up box)
     function drawStar(cx, cy, spikes, outerRadius, innerRadius, color) {
       let rot = Math.PI / 2 * 3;
       let x = cx;
@@ -201,7 +215,6 @@
       ctx.fill();
     }
     
-    // Draw a heart shape (used for HP box)
     function drawHeart(cx, cy, size, color) {
       ctx.save();
       ctx.translate(cx, cy);
@@ -218,9 +231,6 @@
       ctx.restore();
     }
     
-    // ---------------------------
-    // Background Star Class
-    // ---------------------------
     class Star {
       constructor(x, y, radius, speed) {
         this.x = x;
@@ -255,9 +265,6 @@
       }
     }
     
-    // ---------------------------
-    // Explosion Particle Effects
-    // ---------------------------
     class Explosion {
       constructor(x, y) {
         this.x = x;
@@ -302,9 +309,6 @@
       }
     }
     
-    // ---------------------------
-    // Game Object Classes
-    // ---------------------------
     class Player {
       constructor(x, y) {
         this.x = x;
@@ -314,12 +318,11 @@
         this.hp = 100;
         this.maxHp = 100;
         this.speed = 5;
-        this.shotDelay = 300; // Default delay between shots in ms.
+        this.shotDelay = 300; // Default delay between shots.
+        this.gunLines = 1; // Start with 1 firing line.
       }
       draw() {
-        // Draw the player's spaceship image.
         ctx.drawImage(playerImage, this.x - this.width/2, this.y - this.height/2, this.width, this.height);
-        // Draw the player's HP bar beneath the ship.
         let barY = this.y + this.height/2 + 5;
         ctx.fillStyle = '#f00';
         ctx.fillRect(this.x - this.width/2, barY, this.width, 5);
@@ -343,41 +346,38 @@
           case "veryEasy":
             this.width = 30;
             this.height = 30;
-            this.hp = 20 + level*2;
+            this.hp = 20 + level * 2;
             this.maxHp = this.hp;
             this.speed = 3;
             break;
           case "easy":
             this.width = 30;
             this.height = 30;
-            this.hp = 30 + level*5;
+            this.hp = 30 + level * 5;
             this.maxHp = this.hp;
             this.speed = 3;
             break;
           case "medium":
             this.width = 30;
             this.height = 30;
-            this.hp = 50 + level*5;
+            this.hp = 50 + level * 5;
             this.maxHp = this.hp;
             this.speed = 2.5;
             break;
           case "boss":
             this.width = 80;
             this.height = 80;
-            // Boss HP: base 5000, multiplied by 1.5^(floor(level/5)) then reduced by 50%.
             this.hp = 5000 * Math.pow(1.5, Math.floor(level/5)) * 0.5;
             this.maxHp = this.hp;
-            this.dx = 2;  // Horizontal speed.
-            this.y = 50;  // Fixed vertical position.
-            // Randomly choose one of the two boss images.
+            this.dx = 2;
+            this.y = 50;
             this.image = (Math.random() < 0.5) ? boss1Image : boss2Image;
-            // Apply a random hue rotation to tint the boss image.
             this.hueRotate = Math.floor(Math.random() * 360);
             break;
           default:
             this.width = 30;
             this.height = 30;
-            this.hp = 30 + level*5;
+            this.hp = 30 + level * 5;
             this.maxHp = this.hp;
             this.speed = 3;
             break;
@@ -388,7 +388,6 @@
         if (this.type === "veryEasy") {
           ctx.drawImage(enemy1Image, this.x - this.width/2, this.y - this.height/2, this.width, this.height);
         } else if (this.type === "easy") {
-          // Use enemy3.png tinted red for the "easy" enemy.
           ctx.save();
           ctx.drawImage(enemy3Image, this.x - this.width/2, this.y - this.height/2, this.width, this.height);
           ctx.globalCompositeOperation = "source-atop";
@@ -401,7 +400,6 @@
         } else if (this.type === "boss") {
           ctx.save();
           ctx.filter = "hue-rotate(" + this.hueRotate + "deg)";
-          // Process boss image to remove white background if necessary.
           if (!this.processedImage) {
             let offCanvas = document.createElement("canvas");
             offCanvas.width = this.width;
@@ -411,7 +409,6 @@
             let imageData = offCtx.getImageData(0, 0, this.width, this.height);
             let data = imageData.data;
             for (let i = 0; i < data.length; i += 4) {
-              // If R, G, and B are close to white, set alpha to 0.
               if (data[i] > 240 && data[i+1] > 240 && data[i+2] > 240) {
                 data[i+3] = 0;
               }
@@ -423,7 +420,6 @@
           ctx.drawImage(this.processedImage, this.x - this.width/2, this.y - this.height/2, this.width, this.height);
           ctx.restore();
         }
-        // Draw HP bar above the enemy.
         ctx.fillStyle = '#f00';
         ctx.fillRect(this.x - this.width/2, this.y - this.height/2 - 10, this.width, 4);
         ctx.fillStyle = '#0f0';
@@ -431,26 +427,24 @@
       }
       update() {
         if (this.type === "boss") {
-          // Boss moves only horizontally at the top.
           this.y = 50;
           this.x += this.dx;
           if (this.x < this.width/2 || this.x > canvas.width - this.width/2) {
-              this.dx = -this.dx;
+            this.dx = -this.dx;
           }
           if (Math.random() < this.shootProbability) {
-              // Boss fires three vertical lines of bullets (rain shower pattern).
-              const offsets = [-20, 0, 20];
-              offsets.forEach(off => {
-                enemyBullets.push(new Bullet(this.x + off, this.y + this.height/2, 0, 4, false));
-              });
+            const offsets = [-20, 0, 20];
+            offsets.forEach(off => {
+              enemyBullets.push(new Bullet(this.x + off, this.y + this.height/2, 0, 4, false));
+            });
           }
         } else {
           this.y += this.speed;
           if (this.type === "medium") {
-              this.x += Math.sin(this.y/50);
-              if (Math.random() < this.shootProbability) {
-                  enemyBullets.push(new Bullet(this.x, this.y + this.height/2, 0, 4, false));
-              }
+            this.x += Math.sin(this.y/50);
+            if (Math.random() < this.shootProbability) {
+              enemyBullets.push(new Bullet(this.x, this.y + this.height/2, 0, 4, false));
+            }
           }
         }
       }
@@ -477,7 +471,7 @@
       }
     }
     
-    // Up Box: green star that increases player's shooting speed (reduces shotDelay).
+    // Up Box: green star (50% bigger) that upgrades gun or reduces delay.
     class ItemBox {
       constructor(x, y) {
         this.x = x;
@@ -485,17 +479,18 @@
         this.dy = 2;
       }
       draw() {
-        drawStar(this.x, this.y, 5, 10, 5, '#0f0');
+        // Increase size: outer radius 15, inner radius 7.5.
+        drawStar(this.x, this.y, 5, 15, 7.5, '#0f0');
         ctx.fillStyle = '#000';
-        ctx.font = "10px Arial";
-        ctx.fillText("up", this.x - 8, this.y + 3);
+        ctx.font = "15px Arial";
+        ctx.fillText("up", this.x - 12, this.y + 5);
       }
       update() {
         this.y += this.dy;
       }
     }
     
-    // HP Box: red heart shape.
+    // HP Box: red heart, 50% bigger.
     class HPBox {
       constructor(x, y) {
         this.x = x;
@@ -503,22 +498,42 @@
         this.dy = 2;
       }
       draw() {
-        drawHeart(this.x, this.y, 20, '#f00');
+        // Increase size: size 30.
+        drawHeart(this.x, this.y, 30, '#f00');
       }
       update() {
         this.y += this.dy;
       }
     }
     
-    // ---------------------------
-    // Event Listeners for Input
-    // ---------------------------
-    window.addEventListener('keydown', (e) => { keys[e.key] = true; });
-    window.addEventListener('keyup', (e) => { keys[e.key] = false; });
+    // Bomb Box: magenta square with letter "B", 50% bigger.
+    class BombBox {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.dy = 2;
+      }
+      draw() {
+        // 50% bigger: 30x30 square.
+        ctx.fillStyle = '#ff00ff';
+        ctx.fillRect(this.x - 15, this.y - 15, 30, 30);
+        ctx.fillStyle = '#000';
+        ctx.font = "24px Arial";
+        ctx.fillText("B", this.x - 8, this.y + 8);
+      }
+      update() {
+        this.y += this.dy;
+      }
+    }
     
-    // ---------------------------
-    // Spawning Functions
-    // ---------------------------
+    window.addEventListener('keydown', (e) => { keys[e.key] = true; });
+    window.addEventListener('keyup', (e) => { 
+      keys[e.key] = false; 
+      if (e.key === "b") {
+        bombKeyDown = false;
+      }
+    });
+    
     function spawnEnemy() {
       if (bossActive) return;
       const x = Math.random() * (canvas.width - 40) + 20;
@@ -538,7 +553,6 @@
       enemies.push(new Enemy(x, 50, "boss"));
     }
     
-    // Up box spawn rate reduced to 0.0025 with a 10-second cooldown.
     function spawnItemBoxes() {
       let now = Date.now();
       if (now - lastUpSpawn > 10000 && Math.random() < 0.0025) {
@@ -548,7 +562,6 @@
       }
     }
     
-    // HP box spawn rate reduced to 0.0015 with a 10-second cooldown.
     function spawnHPBoxes() {
       let now = Date.now();
       if (now - lastHPSpawn > 10000 && Math.random() < 0.0015) {
@@ -558,9 +571,29 @@
       }
     }
     
-    // ---------------------------
-    // Main Game Loop
-    // ---------------------------
+    function spawnBombBoxes() {
+      let now = Date.now();
+      if (now - lastBombSpawn > 10000 && Math.random() < 0.0025) {
+        const x = Math.random() * (canvas.width - 20) + 10;
+        bombBoxes.push(new BombBox(x, -10));
+        lastBombSpawn = now;
+      }
+    }
+    
+    // Function to use a bomb when the B key is pressed.
+    function useBomb() {
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        if (enemies[i].type !== "boss") {
+          explosions.push(new Explosion(enemies[i].x, enemies[i].y));
+          score += 20;
+          enemies.splice(i, 1);
+        }
+      }
+      bombSound.play();
+      flashAlpha = 1;
+      bombCount--;
+    }
+    
     function updateGame() {
       if (gameOver) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -631,8 +664,12 @@
         }
         if (box.x > player.x - player.width/2 && box.x < player.x + player.width/2 &&
             box.y > player.y - player.height/2 && box.y < player.y + player.height/2) {
-          // Reduce shotDelay by 50ms, with a minimum of 50ms.
-          player.shotDelay = Math.max(50, player.shotDelay - 50);
+          // Upgrade gun if not at 3 lines; otherwise, reduce shotDelay by 50 until min 100.
+          if (player.gunLines < 3) {
+            player.gunLines++;
+          } else if (player.shotDelay > 100) {
+            player.shotDelay = Math.max(100, player.shotDelay - 50);
+          }
           itemBoxes.splice(i, 1);
           upSound.play();
         }
@@ -652,6 +689,21 @@
         }
       });
       
+      bombBoxes.forEach((box, i) => {
+        box.update();
+        box.draw();
+        if (box.y > canvas.height + 10) {
+          bombBoxes.splice(i, 1);
+        }
+        if (box.x > player.x - player.width/2 && box.x < player.x + player.width/2 &&
+            box.y > player.y - player.height/2 && box.y < player.y + player.height/2) {
+          bombCount++;
+          bombBoxes.splice(i, 1);
+          // Use the same sound as the up box for collection.
+          upSound.play();
+        }
+      });
+      
       explosions.forEach((explosion, i) => {
         explosion.update();
         explosion.draw();
@@ -663,16 +715,45 @@
       if (!bossActive && Math.random() < 0.02) spawnEnemy();
       spawnItemBoxes();
       spawnHPBoxes();
+      spawnBombBoxes();
       
+      // Fire bullets based on the number of gun lines.
       if (keys[' ']) {
         if (!player.lastBulletTime || Date.now() - player.lastBulletTime > player.shotDelay) {
-          bullets.push(new Bullet(player.x, player.y - player.height/2, 0, -6, true));
+          if (player.gunLines === 1) {
+            bullets.push(new Bullet(player.x, player.y - player.height/2, 0, -6, true));
+          } else if (player.gunLines === 2) {
+            // Two bullets fired vertically with horizontal offsets.
+            bullets.push(new Bullet(player.x - 10, player.y - player.height/2, 0, -6, true));
+            bullets.push(new Bullet(player.x + 10, player.y - player.height/2, 0, -6, true));
+          } else if (player.gunLines === 3) {
+            // Three bullets fired vertically with wider offsets.
+            bullets.push(new Bullet(player.x - 15, player.y - player.height/2, 0, -6, true));
+            bullets.push(new Bullet(player.x, player.y - player.height/2, 0, -6, true));
+            bullets.push(new Bullet(player.x + 15, player.y - player.height/2, 0, -6, true));
+          }
           player.lastBulletTime = Date.now();
           shootSound.play();
         }
       }
       
-      // Only update gameTime (and level) if boss is not active.
+      if (keys['b'] && !bombKeyDown) {
+        if (bombCount > 0) {
+          useBomb();
+        }
+        bombKeyDown = true;
+      }
+      
+      if (flashAlpha > 0) {
+        ctx.save();
+        ctx.globalAlpha = flashAlpha;
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+        flashAlpha -= 0.05;
+        if (flashAlpha < 0) flashAlpha = 0;
+      }
+      
       if (!bossActive) {
         gameTime += 16.67;
         if (gameTime > 30000) {
@@ -690,6 +771,8 @@
       ctx.fillText("Lives: " + lives, 10, 50);
       ctx.fillText("Level: " + level, 10, 75);
       ctx.fillText("Shot Delay: " + player.shotDelay + "ms", 10, 100);
+      ctx.fillText("Bomb: " + bombCount, 10, 125);
+      ctx.fillText("Gun Lines: " + player.gunLines, 10, 150);
       
       if (level === 50 && !enemies.some(e => e.type === "boss")) {
         endGame(true);
@@ -699,9 +782,6 @@
       gameLoopId = requestAnimationFrame(updateGame);
     }
     
-    // ---------------------------
-    // Life and Game Over Handling
-    // ---------------------------
     function loseLife() {
       deadSound.play();
       lives--;
@@ -709,8 +789,8 @@
         player.hp = player.maxHp;
         player.x = canvas.width/2;
         player.y = canvas.height - 50;
-        // Reset shotDelay to default when player dies.
         player.shotDelay = 300;
+        player.gunLines = 1;
       } else {
         endGame(false);
       }
@@ -725,9 +805,6 @@
       updateHallOfFame();
     }
     
-    // ---------------------------
-    // Hall of Fame
-    // ---------------------------
     function updateHallOfFame() {
       let hall = JSON.parse(localStorage.getItem('hallOfFame')) || [];
       hall.push({ name: playerName, score: score });
@@ -742,9 +819,6 @@
       });
     }
     
-    // ---------------------------
-    // Game Start / Restart
-    // ---------------------------
     function startGame() {
       level = 1;
       score = 0;
@@ -755,14 +829,16 @@
       enemyBullets = [];
       itemBoxes = [];
       hpBoxes = [];
+      bombBoxes = [];
       explosions = [];
       gameOver = false;
       bossActive = false;
+      bombCount = 0;
       player = new Player(canvas.width/2, canvas.height - 50);
       initStars();
-      // Initialize power-up spawn timers.
       lastUpSpawn = Date.now();
       lastHPSpawn = Date.now();
+      lastBombSpawn = Date.now();
       startScreen.classList.add('hidden');
       gameOverScreen.classList.add('hidden');
       bgMusic.play();
