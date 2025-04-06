@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Simple Pac-Man with Sound & Mobile Controls</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        html, body {
+            overscroll-behavior-y: contain; /* Prevent pull-to-refresh */
+            margin: 0;
+            padding: 0;
+            height: 100%; /* Ensure body takes full height */
+            touch-action: manipulation; /* Improve touch responsiveness */
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* Center vertically */
+            align-items: center;
+            min-height: 100vh;
+            background-color: #000;
+            font-family: 'Press Start 2P', cursive;
+            color: #fff;
+            padding-bottom: 150px; /* Add padding to prevent controls overlapping content */
+            box-sizing: border-box;
+        }
+
+        #game-container {
+            border: 5px solid #0000FF;
+            position: relative;
+            background-color: #111;
+            box-shadow: 0 0 20px #FFFF00;
+            border-radius: 10px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px; /* Space between game and desktop controls */
+        }
+
+        canvas {
+            display: block;
+            background-color: #000;
+            border-radius: 5px;
+            cursor: pointer;
+             /* Make canvas responsive but maintain aspect ratio */
+             max-width: 100%; /* Fit width */
+             max-height: calc(100vh - 250px); /* Limit height considering controls/title */
+             aspect-ratio: 448 / 496; /* Maintain original aspect ratio */
+             width: auto; /* Adjust width based on height */
+             height: auto; /* Adjust height based on width */
+             object-fit: contain; /* Ensure it scales nicely */
+        }
+
+        #ui-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            padding: 15px 0;
+            box-sizing: border-box;
+        }
+
+        #score {
+            font-size: 1.2em;
+            color: #FFFF00;
+            margin-left: 10px;
+        }
+
+        #controls {
+             margin-right: 10px;
+        }
+
+        button { /* Style for Restart button */
+            font-family: 'Press Start 2P', cursive;
+            background-color: #FFA500;
+            color: #000;
+            border: 2px solid #FFD700;
+            padding: 8px 15px;
+            font-size: 0.9em;
+            cursor: pointer;
+            border-radius: 5px;
+            box-shadow: 0 4px #8B4513;
+            transition: all 0.1s ease;
+        }
+        button:active {
+            box-shadow: 0 1px #8B4513;
+            transform: translateY(3px);
+        }
+        button:hover {
+            background-color: #FFD700;
+        }
+
+        /* Message Box Styling */
+        #message-box {
+            /* ... (message box styling remains the same) ... */
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 255, 0.8); color: white; padding: 30px;
+            border-radius: 10px; text-align: center; font-size: 1.5em;
+            display: none; z-index: 10; border: 3px solid #FFFF00;
+        }
+        #message-box button { margin-top: 20px; }
+
+
+        /* --- Mobile Controls Styling --- */
+        #controls-mobile {
+            position: fixed; /* Keep controls fixed at the bottom */
+            bottom: 10px; /* Position near the bottom */
+            left: 50%;
+            transform: translateX(-50%); /* Center horizontally */
+            width: 150px; /* Container width */
+            height: 150px; /* Container height */
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
+            gap: 5px; /* Gap between buttons */
+            z-index: 20; /* Ensure controls are on top */
+            opacity: 0.8; /* Slightly transparent */
+            /* Hide on larger screens where keyboard is expected */
+             @media (min-width: 768px) {
+                 display: none;
+             }
+        }
+
+        .control-button {
+            background-color: #444; /* Dark grey background */
+            border: 2px solid #888; /* Lighter grey border */
+            border-radius: 8px; /* Rounded corners */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.8em; /* Larger arrows */
+            color: #fff; /* White arrows */
+            cursor: pointer;
+            user-select: none; /* Prevent text selection on tap */
+            -webkit-user-select: none; /* Safari */
+            -webkit-tap-highlight-color: rgba(255, 255, 255, 0.3); /* Visual feedback on tap */
+        }
+
+        .control-button:active {
+            background-color: #666; /* Slightly lighter when pressed */
+            border-color: #aaa;
+        }
+
+        /* Position individual buttons using grid layout */
+        #button-up { grid-column: 2; grid-row: 1; }
+        #button-left { grid-column: 1; grid-row: 2; }
+        #button-right { grid-column: 3; grid-row: 2; }
+        #button-down { grid-column: 2; grid-row: 3; }
+
+    </style>
+</head>
+<body>
+    <h1>Simple Pac-Man</h1>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui-container">
+            <div id="score">Score: 0</div>
+            <div id="controls">
+                <button id="restartButton">Restart</button>
+            </div>
+        </div>
+         <div id="message-box">
+            <p id="message-text"></p>
+            <button id="message-button">OK</button>
+        </div>
+    </div>
+
+     <div id="controls-mobile">
+         <div class="control-button" id="button-up">▲</div>
+         <div class="control-button" id="button-left">◀</div>
+         <div class="control-button" id="button-right">▶</div>
+         <div class="control-button" id="button-down">▼</div>
+     </div>
+
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const restartButton = document.getElementById('restartButton');
+        const messageBox = document.getElementById('message-box');
+        const messageText = document.getElementById('message-text');
+        const messageButton = document.getElementById('message-button');
+
+        // --- Mobile Control Buttons ---
+        const buttonUp = document.getElementById('button-up');
+        const buttonDown = document.getElementById('button-down');
+        const buttonLeft = document.getElementById('button-left');
+        const buttonRight = document.getElementById('button-right');
+
+
+        const TILE_SIZE = 16;
+        const PACMAN_SIZE = TILE_SIZE * 0.8;
+        const PELLET_SIZE = TILE_SIZE * 0.2;
+        const GHOST_SIZE = TILE_SIZE * 0.8;
+
+        // Adjust canvas internal resolution based on TILE_SIZE and map dimensions
+        const MAP_COLS = 28;
+        const MAP_ROWS = 31;
+        canvas.width = MAP_COLS * TILE_SIZE;
+        canvas.height = MAP_ROWS * TILE_SIZE;
+
+        const ROWS = canvas.height / TILE_SIZE; // Use calculated ROWS/COLS
+        const COLS = canvas.width / TILE_SIZE;
+
+        let pacman;
+        let ghosts = [];
+        let pellets = [];
+        let score = 0;
+        let gameOver = false;
+        let gameWon = false;
+        let animationFrameId;
+
+        // --- Sound Setup (Tone.js) ---
+        let audioStarted = false;
+        let synthsReady = false;
+        let pelletSynth1, pelletSynth2, deathSynth, startSynth, winSynth;
+        let pelletToggle = false;
+
+        function setupSounds() { /* ... (setupSounds remains the same) ... */
+             if (synthsReady) return;
+             try {
+                  pelletSynth1 = new Tone.Synth({ oscillator: { type: "square" }, envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.05 } }).toDestination();
+                  pelletSynth2 = new Tone.Synth({ oscillator: { type: "sawtooth" }, envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.05 } }).toDestination();
+                  deathSynth = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.005, decay: 0.2, sustain: 0 } }).toDestination();
+                  startSynth = new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.1, release: 0.1 } }).toDestination();
+                  winSynth = new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.2, release: 0.2 } }).toDestination();
+                  synthsReady = true; console.log("Tone.js Synths created successfully.");
+             } catch (error) { console.error("Error creating Tone.js synths:", error); synthsReady = false; }
+        }
+
+        startAudio.isStarting = false;
+        async function startAudio() { /* ... (startAudio remains the same) ... */
+             if (startAudio.isStarting || audioStarted) return;
+             setupSounds();
+             if (!synthsReady) { console.error("Cannot start audio, synths not ready."); return; }
+             if (Tone.context.state === 'running') { audioStarted = true; console.log("Audio context was already running."); return; }
+             startAudio.isStarting = true; console.log("Attempting to start Tone.js audio context...");
+             try {
+                 await Tone.start();
+                 if (Tone.context.state === 'running') {
+                     audioStarted = true; console.log("Audio context started successfully.");
+                     if (startSynth) { const now = Tone.now(); startSynth.triggerAttackRelease("C4", "8n", now); startSynth.triggerAttackRelease("E4", "8n", now + 0.15); startSynth.triggerAttackRelease("G4", "8n", now + 0.3); }
+                 } else { console.warn("Tone.start() completed but context state is not 'running'. State:", Tone.context.state); }
+             } catch (error) { console.error("Error starting Tone.js audio context:", error); audioStarted = false; }
+             finally { startAudio.isStarting = false; }
+        }
+
+
+        // Define the maze layout
+        const map = [
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1],
+            [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1],
+            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1],
+            [1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1],
+            [1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1],
+            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 10
+            [1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1],
+            [0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0], // 13 - Tunnel Row
+            [1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1], // 15
+            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1],
+            [1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1], // 20
+            [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1],
+            [1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1], // 22 - Start Row
+            [1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1],
+            [1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1],
+            [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], // 25
+            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] // 27
+        ]; // Map dimensions: 28 cols, 31 rows (approx)
+
+        // --- Helper Functions ---
+        function getTile(x, y) { /* ... */ const col = Math.floor(x / TILE_SIZE); const row = Math.floor(y / TILE_SIZE); if (row === 13 && (col < 0 || col >= COLS)) return 0; if (row < 0 || row >= ROWS || col < 0 || col >= COLS || map[row]?.[col] === undefined) return 1; return map[row][col]; }
+        function isWall(x, y) { return getTile(x, y) === 1; }
+        function checkWallCollision(x, y, width, height, velX, velY) { /* ... */ const m = 1; if (velX > 0) return isWall(x + width, y + m) || isWall(x + width, y + height - 1 - m); if (velX < 0) return isWall(x - m, y + m) || isWall(x - m, y + height - 1 - m); if (velY > 0) return isWall(x + m, y + height) || isWall(x + width - 1 - m, y + height); if (velY < 0) return isWall(x + m, y - m) || isWall(x + width - 1 - m, y - m); return false; }
+        function showMessage(text) { /* ... */ messageText.textContent = text; messageBox.style.display = 'block'; setTimeout(() => messageButton.focus(), 0); }
+        function hideMessage() { /* ... */ messageBox.style.display = 'none'; }
+
+        // --- Game Object Classes ---
+        class Pacman {
+             constructor(x, y, speed) { /* ... */ this.x = x; this.y = y; this.speed = speed; this.radius = PACMAN_SIZE / 2; this.width = TILE_SIZE; this.height = TILE_SIZE; this.velX = 0; this.velY = 0; this.nextVelX = 0; this.nextVelY = 0; this.mouthOpen = Math.PI / 8; this.mouthSpeed = 0.1; }
+             draw() { /* ... (drawing logic remains the same) ... */ ctx.fillStyle = 'yellow'; ctx.beginPath(); let angleOffset = 0; let currentVelX = this.velX; let currentVelY = this.velY; if (currentVelX === 0 && currentVelY === 0) { if (this.nextVelX > 0) angleOffset = 0; else if (this.nextVelX < 0) angleOffset = Math.PI; else if (this.nextVelY > 0) angleOffset = Math.PI / 2; else if (this.nextVelY < 0) angleOffset = -Math.PI / 2; } else { if (currentVelX > 0) angleOffset = 0; else if (currentVelX < 0) angleOffset = Math.PI; else if (currentVelY > 0) angleOffset = Math.PI / 2; else if (currentVelY < 0) angleOffset = -Math.PI / 2; } if (this.velX !== 0 || this.velY !== 0 || this.nextVelX !== 0 || this.nextVelY !== 0) { this.mouthOpen += this.mouthSpeed; if (this.mouthOpen > Math.PI / 4 || this.mouthOpen < 0) { this.mouthSpeed *= -1; } } else { this.mouthOpen = Math.PI / 8; } ctx.arc(this.x + TILE_SIZE / 2, this.y + TILE_SIZE / 2, this.radius, this.mouthOpen + angleOffset, 2 * Math.PI - this.mouthOpen + angleOffset); ctx.lineTo(this.x + TILE_SIZE / 2, this.y + TILE_SIZE / 2); ctx.closePath(); ctx.fill(); }
+             update() { /* ... (update logic remains the same) ... */ const currentTileRow = Math.floor((this.y + TILE_SIZE / 2) / TILE_SIZE); if (currentTileRow === 13) { if (this.x + this.width < 0 && this.velX < 0) this.x = COLS * TILE_SIZE; else if (this.x > COLS * TILE_SIZE && this.velX > 0) this.x = -this.width; } if (this.nextVelX !== 0 || this.nextVelY !== 0) { const isOnGridX = this.x % TILE_SIZE === 0; const isOnGridY = this.y % TILE_SIZE === 0; if (isOnGridX && isOnGridY) { if (!checkWallCollision(this.x, this.y, this.width, this.height, this.nextVelX, this.nextVelY)) { this.velX = this.nextVelX; this.velY = this.nextVelY; this.nextVelX = 0; this.nextVelY = 0; } } } let nextX = this.x + this.velX * this.speed; let nextY = this.y + this.velY * this.speed; if (checkWallCollision(this.x, this.y, this.width, this.height, this.velX, this.velY)) { this.x = Math.round(this.x / TILE_SIZE) * TILE_SIZE; this.y = Math.round(this.y / TILE_SIZE) * TILE_SIZE; this.velX = 0; this.velY = 0; } else { this.x = nextX; this.y = nextY; } this.eatPellet(); }
+             // Modified changeDirection to accept velocity directly
+             setNextDirection(vx, vy) {
+                 // Basic check to prevent setting opposite direction unless already moving
+                 if (this.velX === -vx && this.velY === 0 && vx !== 0) return;
+                 if (this.velY === -vy && this.velX === 0 && vy !== 0) return;
+
+                 this.nextVelX = vx;
+                 this.nextVelY = vy;
+
+                 // Allow immediate 180 turn
+                 if ((vx === -this.velX && this.velY === 0 && vx !== 0) ||
+                     (vy === -this.velY && this.velX === 0 && vy !== 0))
+                 {
+                     this.velX = vx; this.velY = vy;
+                     this.nextVelX = 0; this.nextVelY = 0;
+                 }
+             }
+             changeDirectionByKey(keyCode) { // Keep original for keyboard
+                 switch (keyCode) {
+                     case 37: this.setNextDirection(-1, 0); break; // Left
+                     case 38: this.setNextDirection(0, -1); break; // Up
+                     case 39: this.setNextDirection(1, 0); break; // Right
+                     case 40: this.setNextDirection(0, 1); break; // Down
+                 }
+             }
+             eatPellet() { /* ... (pellet eating logic with sound trigger remains the same) ... */ const col = Math.round(this.x / TILE_SIZE); const row = Math.round(this.y / TILE_SIZE); const pelletIndex = pellets.findIndex(p => Math.round(p.x / TILE_SIZE) === col && Math.round(p.y / TILE_SIZE) === row); if (pelletIndex !== -1) { pellets.splice(pelletIndex, 1); score += 10; updateScore(); if (audioStarted && synthsReady) { const now = Tone.now(); if (pelletToggle) { pelletSynth1?.triggerAttackRelease("C5", "32n", now); } else { pelletSynth2?.triggerAttackRelease("A4", "32n", now); } pelletToggle = !pelletToggle; } if (pellets.length === 0) { gameWon = true; gameOver = true; if (audioStarted && synthsReady && winSynth) { const now = Tone.now(); winSynth.triggerAttackRelease("C5", "8n", now); winSynth.triggerAttackRelease("E5", "8n", now + 0.2); winSynth.triggerAttackRelease("G5", "8n", now + 0.4); winSynth.triggerAttackRelease("C6", "4n", now + 0.6); } } } }
+        }
+        class Ghost {
+             constructor(x, y, speed, color) { /* ... */ this.x = x; this.y = y; this.speed = speed; this.color = color; this.radius = GHOST_SIZE / 2; this.width = TILE_SIZE; this.height = TILE_SIZE; this.velX = 0; this.velY = -1; this.targetTile = null; this.lastDirectionChoice = { x: 0, y: -1 }; }
+             draw() { /* ... (drawing logic remains the same) ... */ ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x + TILE_SIZE / 2, this.y + TILE_SIZE / 2, this.radius, Math.PI, 0); ctx.lineTo(this.x + this.width, this.y + this.height * 0.8); ctx.lineTo(this.x + this.width * 0.8, this.y + this.height * 0.7); ctx.lineTo(this.x + this.width * 0.6, this.y + this.height * 0.8); ctx.lineTo(this.x + this.width * 0.4, this.y + this.height * 0.7); ctx.lineTo(this.x + this.width * 0.2, this.y + this.height * 0.8); ctx.lineTo(this.x, this.y + this.height * 0.8); ctx.closePath(); ctx.fill(); ctx.fillStyle = 'white'; const eyeOffsetX = TILE_SIZE * 0.18; const eyeOffsetY = TILE_SIZE * 0.2; const eyeRadius = TILE_SIZE * 0.12; const pupilRadius = TILE_SIZE * 0.06; ctx.beginPath(); ctx.arc(this.x + TILE_SIZE / 2 - eyeOffsetX, this.y + TILE_SIZE / 2 - eyeOffsetY, eyeRadius, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(this.x + TILE_SIZE / 2 + eyeOffsetX, this.y + TILE_SIZE / 2 - eyeOffsetY, eyeRadius, 0, Math.PI * 2); ctx.fill(); let pupilOffsetX = 0; let pupilOffsetY = 0; const pupilShift = TILE_SIZE * 0.03; if (this.velX > 0) pupilOffsetX = pupilShift; else if (this.velX < 0) pupilOffsetX = -pupilShift; if (this.velY > 0) pupilOffsetY = pupilShift; else if (this.velY < 0) pupilOffsetY = -pupilShift; ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(this.x + TILE_SIZE / 2 - eyeOffsetX + pupilOffsetX, this.y + TILE_SIZE / 2 - eyeOffsetY + pupilOffsetY, pupilRadius, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(this.x + TILE_SIZE / 2 + eyeOffsetX + pupilOffsetX, this.y + TILE_SIZE / 2 - eyeOffsetY + pupilOffsetY, pupilRadius, 0, Math.PI * 2); ctx.fill(); }
+             update() { /* ... (update logic mostly the same) ... */ const currentTileRow = Math.floor((this.y + TILE_SIZE / 2) / TILE_SIZE); if (currentTileRow === 13) { if (this.x + this.width < 0 && this.velX < 0) this.x = COLS * TILE_SIZE; else if (this.x > COLS * TILE_SIZE && this.velX > 0) this.x = -this.width; } const isOnGridX = this.x % TILE_SIZE === 0; const isOnGridY = this.y % TILE_SIZE === 0; if (isOnGridX && isOnGridY) { const possibleDirections = []; if (!checkWallCollision(this.x, this.y, this.width, this.height, 0, -1)) possibleDirections.push({ x: 0, y: -1 }); if (!checkWallCollision(this.x, this.y, this.width, this.height, 0, 1)) possibleDirections.push({ x: 0, y: 1 }); if (!checkWallCollision(this.x, this.y, this.width, this.height, -1, 0)) possibleDirections.push({ x: -1, y: 0 }); if (!checkWallCollision(this.x, this.y, this.width, this.height, 1, 0)) possibleDirections.push({ x: 1, y: 0 }); const nonReversing = possibleDirections.filter(dir => dir.x !== -this.velX || dir.y !== -this.velY); let chosenDir; if (nonReversing.length > 0) chosenDir = nonReversing[Math.floor(Math.random() * nonReversing.length)]; else if (possibleDirections.length > 0) chosenDir = possibleDirections[0]; if (chosenDir) { this.velX = chosenDir.x; this.velY = chosenDir.y; } } let nextX = this.x + this.velX * this.speed; let nextY = this.y + this.velY * this.speed; if (checkWallCollision(this.x, this.y, this.width, this.height, this.velX, this.velY)) { this.x = Math.round(this.x / TILE_SIZE) * TILE_SIZE; this.y = Math.round(this.y / TILE_SIZE) * TILE_SIZE; } else { this.x = nextX; this.y = nextY; } this.checkPacmanCollision(); }
+             checkPacmanCollision() { /* ... (collision check with sound trigger remains the same) ... */ if (gameOver || !pacman) return; const pacLeft = pacman.x; const pacRight = pacman.x + pacman.width; const pacTop = pacman.y; const pacBottom = pacman.y + pacman.height; const ghostLeft = this.x; const ghostRight = this.x + this.width; const ghostTop = this.y; const ghostBottom = this.y + this.height; if (pacLeft < ghostRight && pacRight > ghostLeft && pacTop < ghostBottom && pacBottom > ghostTop) { if (!gameOver) { if (audioStarted && synthsReady && deathSynth) { deathSynth.triggerAttackRelease("4n"); } } gameOver = true; gameWon = false; } }
+        }
+        class Pellet { /* ... */ constructor(x, y) { this.x = x; this.y = y; } draw() { ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(this.x + TILE_SIZE / 2, this.y + TILE_SIZE / 2, PELLET_SIZE / 2, 0, Math.PI * 2); ctx.fill(); } }
+
+        // --- Game Initialization ---
+        function init() { /* ... (init logic remains mostly the same) ... */
+             setupSounds(); // Ensure sounds are ready
+             gameOver = false; gameWon = false; score = 0; updateScore();
+             pellets = []; ghosts = []; hideMessage();
+             let pacmanStartX, pacmanStartY;
+             const ghostStartPositions = [ { r: 11, c: 13 }, { r: 13, c: 11 }, { r: 13, c: 13 }, { r: 13, c: 15 } ];
+             for (let r = 0; r < ROWS; r++) { for (let c = 0; c < COLS; c++) { if (map[r]?.[c] === 0) { pellets.push(new Pellet(c * TILE_SIZE, r * TILE_SIZE)); if (pacmanStartX === undefined && r === 22) { pacmanStartX = c * TILE_SIZE; pacmanStartY = r * TILE_SIZE; } } } }
+             if (pacmanStartX !== undefined && pacmanStartY !== undefined) { pacman = new Pacman(pacmanStartX, pacmanStartY, 2); } else { console.error("Fallback Pacman Pos"); pacman = new Pacman(1 * TILE_SIZE, 1 * TILE_SIZE, 2); }
+             const ghostSpeed = 1.5;
+             ghosts.push(new Ghost(ghostStartPositions[0].c * TILE_SIZE, ghostStartPositions[0].r * TILE_SIZE, ghostSpeed, 'red'));
+             ghosts.push(new Ghost(ghostStartPositions[1].c * TILE_SIZE, ghostStartPositions[1].r * TILE_SIZE, ghostSpeed, 'pink'));
+             ghosts.push(new Ghost(ghostStartPositions[2].c * TILE_SIZE, ghostStartPositions[2].r * TILE_SIZE, ghostSpeed, 'cyan'));
+             ghosts.push(new Ghost(ghostStartPositions[3].c * TILE_SIZE, ghostStartPositions[3].r * TILE_SIZE, ghostSpeed, 'orange'));
+             if (animationFrameId) cancelAnimationFrame(animationFrameId);
+             if (audioStarted && synthsReady && startSynth) { const now = Tone.now(); startSynth.triggerAttackRelease("C4", "8n", now); startSynth.triggerAttackRelease("E4", "8n", now + 0.15); startSynth.triggerAttackRelease("G4", "8n", now + 0.3); }
+             gameLoop();
+         }
+
+        // --- Drawing Functions ---
+        function drawMap() { /* ... */ ctx.fillStyle = '#0000FF'; for (let r = 0; r < ROWS; r++) { for (let c = 0; c < COLS; c++) { if (map[r]?.[c] === 1) { ctx.fillRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE); } } } }
+        function drawPellets() { pellets.forEach(pellet => pellet.draw()); }
+        function drawGhosts() { ghosts.forEach(ghost => ghost.draw()); }
+        function updateScore() { scoreElement.textContent = `Score: ${score}`; }
+
+        // --- Game Loop ---
+        function gameLoop() { /* ... (game loop remains the same) ... */
+             if (gameOver) { if (gameWon) showMessage("You Win!"); else showMessage("Game Over!"); animationFrameId = null; return; }
+             ctx.clearRect(0, 0, canvas.width, canvas.height);
+             drawMap(); drawPellets();
+             if (pacman) pacman.draw();
+             drawGhosts();
+             if (pacman) pacman.update();
+             ghosts.forEach(ghost => ghost.update());
+             animationFrameId = requestAnimationFrame(gameLoop);
+         }
+
+        // --- Event Listeners ---
+        // Keyboard Listener
+        window.addEventListener('keydown', (e) => {
+             startAudio(); // Try starting audio on first keydown
+             if ([37, 38, 39, 40].includes(e.keyCode)) {
+                 e.preventDefault();
+                 if (pacman && !gameOver) pacman.changeDirectionByKey(e.keyCode); // Use specific key handler
+             }
+             if (e.keyCode === 13 && messageBox.style.display === 'block') messageButton.click();
+        });
+
+        // --- Mobile Touch Listeners ---
+        function handleTouch(event, vx, vy) {
+            event.preventDefault(); // Prevent scrolling/zooming
+            startAudio(); // Try starting audio on first touch
+            if (pacman && !gameOver) {
+                pacman.setNextDirection(vx, vy); // Use direct velocity setting
+            }
+        }
+
+        buttonUp.addEventListener('touchstart', (e) => handleTouch(e, 0, -1), { passive: false });
+        buttonDown.addEventListener('touchstart', (e) => handleTouch(e, 0, 1), { passive: false });
+        buttonLeft.addEventListener('touchstart', (e) => handleTouch(e, -1, 0), { passive: false });
+        buttonRight.addEventListener('touchstart', (e) => handleTouch(e, 1, 0), { passive: false });
+        // Optional: Add touchend listeners if you want movement to stop when lifting finger
+        // (Current setup changes direction on tap, Pac-Man keeps moving)
+
+
+        // Other Listeners
+        canvas.addEventListener('click', startAudio, { once: true }); // Keep this
+        restartButton.addEventListener('click', () => { startAudio(); init(); });
+        messageButton.addEventListener('click', () => { hideMessage(); init(); });
+
+        // --- Start Game ---
+         window.onload = function() { init(); };
+
+    </script>
+</body>
+</html>
