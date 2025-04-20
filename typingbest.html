@@ -242,9 +242,9 @@
     <div id="messageBox"></div>
 
     <script>
-        // Base version state: Countdown added, limit=30, sounds on (original timing), no dismiss logic.
+        // Base version state + gameOverSound fix. Countdown added, limit=30, sounds on, no dismiss logic.
         // Includes DOMContentLoaded wrapper and canvas size fix in drawGame.
-        console.log("Script start - Base Version (Final Attempt)");
+        console.log("Script start - Updated Base Version");
 
         // --- Get Elements ---
         const canvas = document.getElementById('gameCanvas');
@@ -303,20 +303,26 @@
         let totalRelevantKeyPresses = 0;
         let correctKeyPresses = 0;
         let targetsCompleted = 0;
-        let gameLoopFrameCount = 0; // For throttling game loop logs
+        let gameLoopFrameCount = 0;
 
         // --- Sound Effects (Re-enabled) ---
         let synth = null;
         let correctSound = () => {}; let missSound = () => {}; let gameOverSound = () => {}; let typeSound = () => {}; let lessonCompleteSound = () => {};
 
         function initSounds() {
-            // Using original timing for lessonCompleteSound
+            // Using original timing for lessonCompleteSound, fixed timing for gameOverSound
             if (!synth && typeof Tone !== 'undefined') {
                 try {
                     synth = new Tone.Synth().toDestination();
                     correctSound = () => synth.triggerAttackRelease("C5", "16n", Tone.now());
                     missSound = () => synth.triggerAttackRelease("A2", "8n", Tone.now());
-                    gameOverSound = () => synth.triggerAttackRelease("G2", "4n", Tone.now());
+                    // *** Fixed gameOverSound timing ***
+                    gameOverSound = () => {
+                         try {
+                             const now = Tone.context.currentTime;
+                             synth.triggerAttackRelease("G2", "4n", now + 0.05); // Schedule slightly ahead
+                         } catch(e) { console.error("Error executing gameOverSound:", e); }
+                     };
                     typeSound = () => synth.triggerAttackRelease("E4", "16n", Tone.now() + 0.01);
                     // Original timing
                     lessonCompleteSound = () => {
@@ -326,7 +332,7 @@
                              synth.triggerAttackRelease("G5", "8n", Tone.now() + 0.2); // Original offset
                         } catch (e) { console.error("Error playing lesson complete sound sequence:", e); }
                     };
-                     // console.log("Tone.js synth initialized successfully."); // Keep logs minimal
+                     // console.log("Tone.js synth initialized successfully."); // Minimal logs
                 } catch (e) {
                     console.error("Failed to initialize Tone.js synth:", e);
                     synth = null;
@@ -512,13 +518,102 @@
 
 
         // --- Falling Game Logic ---
-        function createFallingItem() { /* ... includes check ... */ }
-        function drawItem(item) { /* ... includes check ... */ }
-        function updateItems() { /* ... includes sound call ... */ }
-        function drawGame() { /* ... includes checks and sets dimensions ... */ }
-        function gameLoop() { /* ... includes check ... */ }
-        function gameOver() { /* ... includes sound call, no dismiss needed */ }
-        function startGame() { /* ... includes logging, sound call ... */ }
+        function createFallingItem() {
+             if (!allowedChars) return; // Add check
+             const randomLetterIndex = Math.floor(Math.random() * allowedChars.length);
+             const letter = allowedChars[randomLetterIndex];
+             const currentCanvasWidth = canvas ? (canvas.width || displayArea.clientWidth) : displayArea.clientWidth;
+             const x = Math.random() * (currentCanvasWidth - gameConfig.itemSize);
+             const y = -gameConfig.itemSize;
+             const color = gameConfig.colors[Math.floor(Math.random() * gameConfig.colors.length)];
+             fallingItems.push({ x, y, letter, color });
+         }
+        function drawItem(item) {
+             if (!ctx) return; // Add check for context
+             ctx.fillStyle = item.color;
+             ctx.beginPath();
+             ctx.fillRect(item.x, item.y, gameConfig.itemSize, gameConfig.itemSize);
+             ctx.closePath();
+             ctx.fillStyle = '#ffffff';
+             ctx.font = `${gameConfig.itemSize * 0.7}px 'Nunito', sans-serif`;
+             ctx.textAlign = 'center';
+             ctx.textBaseline = 'middle';
+             ctx.fillText(item.letter, item.x + gameConfig.itemSize / 2, item.y + gameConfig.itemSize / 2 + 2);
+         }
+        function updateItems() {
+             if (!canvas) return; // Add check
+             const currentCanvasHeight = canvas.height || displayArea.clientHeight;
+             for (let i = fallingItems.length - 1; i >= 0; i--) {
+                 const item = fallingItems[i];
+                 item.y += currentSpeed;
+                 if (item.y > currentCanvasHeight) {
+                     fallingItems.splice(i, 1);
+                     lives--;
+                     if(missSound) try { missSound(); } catch(e) { /* Ignore error */ }
+                     updateStatsDisplay();
+                     if (lives <= 0 && gameRunning) { gameOver(); return; }
+                 }
+             }
+         }
+        function drawGame() {
+             // Set dimensions inside drawGame for responsiveness
+             if (!canvas || !displayArea || !ctx) return;
+             canvas.width = displayArea.clientWidth;
+             canvas.height = displayArea.clientHeight;
+             ctx.clearRect(0, 0, canvas.width, canvas.height);
+             fallingItems.forEach(drawItem);
+         }
+        function gameLoop() {
+             // gameLoopFrameCount = (gameLoopFrameCount + 1) % 60; // Throttle log
+             // if (gameLoopFrameCount === 0) console.log(">>> gameLoop running"); // Keep logs minimal
+
+             if (!gameRunning || isGameOver) return; // Check flags
+             updateItems();
+             drawGame();
+             currentSpeed += 0.0004;
+             animationFrameId = requestAnimationFrame(gameLoop);
+         }
+        function gameOver() {
+            isGameOver = true; gameRunning = false;
+            if(animationFrameId) cancelAnimationFrame(animationFrameId);
+            if(gameInterval) clearInterval(gameInterval);
+            animationFrameId = null; gameInterval = null;
+             // Use try-catch around the sound call
+             if(gameOverSound) {
+                 try {
+                     // console.log("Playing game over sound..."); // Minimal logs
+                     gameOverSound();
+                 } catch(e) {
+                     console.error("Error calling gameOverSound function:", e);
+                 }
+             }
+            updateStatsDisplay();
+            showMessage(`Game Over! Score: ${score} | Acc: ${accuracyDisplay ? accuracyDisplay.textContent : 'N/A'}% | WPM: ${wpmDisplay ? wpmDisplay.textContent : 'N/A'}`, 0);
+             lessonButtons.forEach(button => { if(button.dataset.mode === Modes.GAME) button.disabled = false; });
+         }
+        function startGame() {
+             // console.log(">>> startGame called"); // Minimal logs
+             if (currentMode !== Modes.GAME || !canvas || !displayArea) {
+                 console.error("startGame aborted: incorrect mode or missing elements.");
+                 return;
+             }
+             initSounds();
+             try { if (Tone.context.state !== 'running') Tone.start(); } catch(e) { console.error("Error starting Tone.js context:", e); }
+
+             score = 0; lives = gameConfig.initialLives; fallingItems = [];
+             currentSpeed = gameConfig.initialFallSpeed; isGameOver = false; gameRunning = true;
+             sessionStartTime = Date.now(); totalRelevantKeyPresses = 0; correctKeyPresses = 0;
+             hideMessage(); updateStatsDisplay();
+             if(animationFrameId) cancelAnimationFrame(animationFrameId);
+             if(gameInterval) clearInterval(gameInterval);
+
+             lessonButtons.forEach(button => { if(button.dataset.mode === Modes.GAME) button.disabled = true; });
+
+             // No need to set canvas size here, drawGame handles it
+
+             gameInterval = setInterval(createFallingItem, gameConfig.itemSpawnInterval);
+             animationFrameId = requestAnimationFrame(gameLoop);
+         }
         // --- Falling Game Logic (End) ---
 
 
