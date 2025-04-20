@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typing Course</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        /* Styles from the base version */
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: linear-gradient(to bottom, #a1c4fd, #c2e9fb);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            min-height: 100vh;
+            padding-top: 20px;
+            color: #333;
+        }
+        h1 {
+            font-weight: 900;
+            color: #ff6347;
+            text-shadow: 1px 1px 1px #fff;
+        }
+        #gameArea {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #ffffffcc;
+            padding: 25px;
+            border-radius: 20px;
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.15);
+            border: 6px solid #ff69b4;
+            width: 90%;
+            max-width: 750px;
+        }
+        #lessonSelector {
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+        }
+        #lessonInfo {
+            margin-bottom: 20px;
+            font-size: 1.1em;
+            color: #1e90ff;
+            min-height: 30px;
+            text-align: center;
+            font-weight: 700;
+        }
+        #displayArea {
+            width: 100%;
+            height: 300px;
+            background-color: #fffacd;
+            border-radius: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+            position: relative;
+            border: 4px solid #cccccc;
+            overflow: hidden;
+        }
+        #targetDisplay {
+            font-size: 8em;
+            color: #333;
+            font-weight: 900;
+        }
+        #gameCanvas {
+            background-color: transparent;
+            border-radius: 10px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%; /* Will be overridden by JS */
+            height: 100%;/* Will be overridden by JS */
+            display: none;
+        }
+        button {
+            font-family: 'Nunito', sans-serif;
+            font-weight: 700;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 10px;
+            border: none;
+            border-bottom: 4px solid;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.1);
+            color: white;
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.2);
+        }
+        button[data-mode="home"] { background-color: #ff7f50; border-color: #e57248; }
+        button[data-mode="upper"] { background-color: #90ee90; border-color: #81d681; color: #333; text-shadow: none;}
+        button[data-mode="lower"] { background-color: #add8e6; border-color: #9cc2cf; color: #333; text-shadow: none;}
+        button[data-mode="words"] { background-color: #ffa07a; border-color: #e5906d; }
+        button[data-mode="game"] { background-color: #ff69b4; border-color: #e55fa2; }
+
+        button:hover {
+            filter: brightness(1.1);
+            transform: translateY(-2px);
+            box-shadow: 0 7px 12px rgba(0,0,0,0.15);
+        }
+        button:active {
+            transform: translateY(1px);
+            box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+            filter: brightness(0.95);
+        }
+        button.active { /* Style for the active lesson button */
+             filter: brightness(0.8);
+             box-shadow: inset 0 3px 5px rgba(0,0,0,0.2);
+             border-bottom-width: 2px;
+             margin-top: 7px;
+        }
+        button:disabled { /* Style for disabled button */
+             background-color: #cccccc;
+             border-color: #aaaaaa;
+             color: #888888;
+             cursor: not-allowed;
+             box-shadow: none;
+             transform: none;
+             filter: grayscale(50%);
+             text-shadow: none;
+        }
+
+        #stats {
+            margin-top: 15px;
+            font-size: 1em;
+            color: #4682b4;
+            font-weight: 700;
+            min-height: 50px;
+            width: 100%;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            flex-wrap: wrap;
+            padding: 5px 0;
+            background-color: rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+        }
+        .stat-item {
+            margin: 5px 10px;
+            /* Hide stats initially, JS will show them */
+            display: none;
+        }
+        #messageBox { /* No cursor pointer */
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 30px 50px;
+            border-radius: 15px;
+            font-size: 1.8em;
+            font-weight: 700;
+            text-align: center;
+            z-index: 1000;
+            display: none;
+            border: 4px solid white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            white-space: pre-line;
+        }
+        .feedback {
+             position: absolute;
+             bottom: 15px;
+             top: auto;
+             left: 50%;
+             transform: translateX(-50%);
+             font-size: 2em;
+             font-weight: 700;
+             padding: 10px 20px;
+             border-radius: 10px;
+             opacity: 0;
+             transition: opacity 0.5s ease-out;
+             z-index: 10;
+             background-color: rgba(255, 255, 255, 0.8);
+             border: 3px solid;
+             width: max-content;
+             max-width: 90%;
+             text-align: center;
+             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .feedback.correct { color: #228B22; border-color: #228B22; }
+        .feedback.incorrect { color: #DC143C; border-color: #DC143C; }
+        .feedback.prompt { color: #1E90FF; border-color: #1E90FF; }
+        .feedback.show { opacity: 1; }
+
+        #wordPracticeDisplay {
+            font-size: 4em;
+            color: #4682b4;
+            text-align: center;
+            padding: 0 15px;
+            line-height: 1.2;
+            font-weight: 700;
+        }
+        .typed-letter { color: #32CD32; font-weight: 900; }
+        .pending-letter { color: #A9A9A9; }
+        .current-letter {
+             color: #FF4500;
+             text-decoration: underline;
+             text-decoration-thickness: 4px;
+             font-weight: 900;
+         }
+
+    </style>
+</head>
+<body>
+    <h1 class="text-4xl mb-5 text-center">Typing Course!</h1>
+
+    <div id="gameArea">
+        <div id="lessonSelector">
+            <button data-mode="home">Home Row</button>
+            <button data-mode="upper">Upper Row</button>
+            <button data-mode="lower">Lower Row</button>
+            <button data-mode="words">Word Practice</button>
+            <button data-mode="game">Falling Game</button>
+        </div>
+        <div id="lessonInfo">Select a lesson to start!</div>
+
+        <div id="displayArea">
+            <div id="targetDisplay">?</div> <div id="wordPracticeDisplay"></div>
+            <canvas id="gameCanvas" width="600" height="300"></canvas>
+            <div id="feedbackDisplay" class="feedback"></div>
+        </div>
+
+        <div id="stats">
+            <div class="stat-item" id="targets-left-stat">Targets: <span id="targetsLeft">0/0</span></div>
+            <div class="stat-item" id="accuracy-stat">Accuracy: <span id="accuracy">0</span>%</div>
+            <div class="stat-item" id="wpm-stat">WPM: <span id="wpm">0</span></div>
+            <div class="stat-item" id="score-stat">Score: <span id="score">0</span></div>
+            <div class="stat-item" id="lives-stat">Lives: <span id="lives">0</span></div>
+        </div>
+    </div>
+
+    <div id="messageBox"></div>
+
+    <script>
+        // Base version state: Countdown added, limit=30, sounds on (original timing), no dismiss logic.
+        // Includes DOMContentLoaded wrapper and canvas size fix in drawGame.
+        console.log("Script start - Base Version (Final Attempt)");
+
+        // --- Get Elements ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas ? canvas.getContext('2d') : null;
+        const lessonSelector = document.getElementById('lessonSelector');
+        const lessonInfo = document.getElementById('lessonInfo');
+        const displayArea = document.getElementById('displayArea');
+        const targetDisplay = document.getElementById('targetDisplay');
+        const wordPracticeDisplay = document.getElementById('wordPracticeDisplay');
+        const feedbackDisplay = document.getElementById('feedbackDisplay');
+        const scoreDisplay = document.getElementById('score');
+        const livesDisplay = document.getElementById('lives');
+        const accuracyDisplay = document.getElementById('accuracy');
+        const wpmDisplay = document.getElementById('wpm');
+        const targetsLeftDisplay = document.getElementById('targetsLeft');
+        const statsDisplay = document.getElementById('stats');
+        const messageBox = document.getElementById('messageBox');
+        const lessonButtons = lessonSelector ? lessonSelector.querySelectorAll('button') : null;
+        const targetsLeftStat = document.getElementById('targets-left-stat');
+        const accuracyStat = document.getElementById('accuracy-stat');
+        const wpmStat = document.getElementById('wpm-stat');
+        const scoreStat = document.getElementById('score-stat');
+        const livesStat = document.getElementById('lives-stat');
+
+
+        // --- Game/Lesson Configuration ---
+        const Modes = { NONE: 'none', HOME: 'home', UPPER: 'upper', LOWER: 'lower', WORDS: 'words', GAME: 'game' };
+        const Keys = { HOME: 'asdfjkl;', UPPER: 'qwertyuiop', LOWER: 'zxcvbnm,./' };
+        const WordLists = {
+             HOME: ['sad', 'ask', 'dad', 'fad', 'lad', 'lass', 'flask', 'jak', 'fad', 'add', 'ska', 'ads', 'all'],
+             UPPER: ['try', 'pet', 'wet', 'yet', 'tie', 'rip', 'tip', 'top', 'pop', 'rue', 'rye', 'pep', 'pot', 'yep', 'toe', 'quit', 'trip', 'rope'],
+             LOWER: ['van', 'man', 'nab', 'cab', 'vac', 'max', 'zap', 'jazz', 'vex', 'ban', 'cam', 'buzz', 'maze']
+        };
+        const gameConfig = {
+            itemSize: 35, initialFallSpeed: 0.9, itemSpawnInterval: 1700, initialLives: 5,
+            colors: ['#FF6347', '#4682B4', '#32CD32', '#FFD700', '#6A5ACD', '#FF69B4', '#FF4500', '#20B2AA', '#DA70D6']
+         };
+        const PRACTICE_TARGET_LIMIT = 30;
+
+        // --- State Variables ---
+        let currentMode = Modes.NONE;
+        let targetChar = '';
+        let currentWord = '';
+        let currentWordIndex = 0;
+        let allowedChars = '';
+        let score = 0;
+        let lives = 0;
+        let fallingItems = [];
+        let gameInterval = null;
+        let animationFrameId = null;
+        let currentSpeed;
+        let isGameOver = false;
+        let isPracticeOver = false;
+        let gameRunning = false;
+        let sessionStartTime = 0;
+        let totalRelevantKeyPresses = 0;
+        let correctKeyPresses = 0;
+        let targetsCompleted = 0;
+        let gameLoopFrameCount = 0; // For throttling game loop logs
+
+        // --- Sound Effects (Re-enabled) ---
+        let synth = null;
+        let correctSound = () => {}; let missSound = () => {}; let gameOverSound = () => {}; let typeSound = () => {}; let lessonCompleteSound = () => {};
+
+        function initSounds() {
+            // Using original timing for lessonCompleteSound
+            if (!synth && typeof Tone !== 'undefined') {
+                try {
+                    synth = new Tone.Synth().toDestination();
+                    correctSound = () => synth.triggerAttackRelease("C5", "16n", Tone.now());
+                    missSound = () => synth.triggerAttackRelease("A2", "8n", Tone.now());
+                    gameOverSound = () => synth.triggerAttackRelease("G2", "4n", Tone.now());
+                    typeSound = () => synth.triggerAttackRelease("E4", "16n", Tone.now() + 0.01);
+                    // Original timing
+                    lessonCompleteSound = () => {
+                        try {
+                             synth.triggerAttackRelease("C5", "8n", Tone.now());
+                             synth.triggerAttackRelease("E5", "8n", Tone.now() + 0.1); // Original offset
+                             synth.triggerAttackRelease("G5", "8n", Tone.now() + 0.2); // Original offset
+                        } catch (e) { console.error("Error playing lesson complete sound sequence:", e); }
+                    };
+                     // console.log("Tone.js synth initialized successfully."); // Keep logs minimal
+                } catch (e) {
+                    console.error("Failed to initialize Tone.js synth:", e);
+                    synth = null;
+                    correctSound = missSound = gameOverSound = typeSound = lessonCompleteSound = () => {};
+                }
+            } else if (typeof Tone === 'undefined') { console.warn("Tone.js library not loaded. Sounds disabled."); }
+        }
+
+
+        // --- UI Update Functions ---
+        // ** showMessage WITHOUT dismiss logic **
+        function showMessage(text, duration = 2000) {
+            if (!messageBox) return;
+            messageBox.textContent = text;
+            messageBox.style.display = 'block';
+            if (duration !== 0) {
+                setTimeout(() => { if (messageBox.style.display !== 'none') hideMessage(); }, duration);
+            }
+        }
+        function hideMessage() {
+            if (!messageBox) return;
+            messageBox.style.display = 'none';
+        }
+        function showFeedback(message, type, duration = 1000) {
+             if (!feedbackDisplay) return;
+             feedbackDisplay.textContent = message;
+             feedbackDisplay.className = `feedback ${type} show`;
+             setTimeout(() => {
+                 feedbackDisplay.classList.remove('show');
+             }, duration);
+         }
+        function updateStatsDisplay() {
+            if (scoreDisplay) scoreDisplay.textContent = score;
+            if (livesDisplay) livesDisplay.textContent = lives;
+            let accuracy=0, wpm=0, elapsedTimeInSeconds=0;
+            if (sessionStartTime > 0) elapsedTimeInSeconds = (Date.now() - sessionStartTime) / 1000;
+            if (totalRelevantKeyPresses > 0) accuracy = Math.round((correctKeyPresses / totalRelevantKeyPresses) * 100);
+            else accuracy = 0;
+            if (elapsedTimeInSeconds > 0.5) wpm = Math.round((correctKeyPresses / 5) / (elapsedTimeInSeconds / 60));
+            else wpm = 0;
+            if (accuracyDisplay) accuracyDisplay.textContent = accuracy;
+            if (wpmDisplay) wpmDisplay.textContent = wpm;
+            const isPracticeMode = currentMode !== Modes.NONE && currentMode !== Modes.GAME;
+            if (isPracticeMode && targetsLeftDisplay) targetsLeftDisplay.textContent = `${targetsCompleted}/${PRACTICE_TARGET_LIMIT}`;
+            // Manage visibility
+            if (scoreStat) scoreStat.style.display = (currentMode === Modes.GAME) ? 'inline-block' : 'none';
+            if (livesStat) livesStat.style.display = (currentMode === Modes.GAME) ? 'inline-block' : 'none';
+            const showPracticeStats = isPracticeMode && (totalRelevantKeyPresses > 0 || isPracticeOver);
+            if (accuracyStat) accuracyStat.style.display = (showPracticeStats || currentMode === Modes.GAME) ? 'inline-block' : 'none';
+            if (wpmStat) wpmStat.style.display = (showPracticeStats || currentMode === Modes.GAME) ? 'inline-block' : 'none';
+            if (targetsLeftStat) targetsLeftStat.style.display = (isPracticeMode && sessionStartTime > 0) ? 'inline-block' : 'none';
+        }
+        // ** Reverted setActiveButton logic **
+         function setActiveButton(mode) {
+             if (!lessonButtons) { console.error("lessonButtons not found"); return; }
+             lessonButtons.forEach(button => {
+                 if (!button || !button.dataset) { console.error("Invalid button"); return; }
+                 try {
+                     const isActive = button.dataset.mode === mode;
+                     button.classList.toggle('active', isActive);
+                     // Simple disable: disable the active button unless it's NONE mode
+                     button.disabled = (isActive && mode !== Modes.NONE);
+                 } catch (e) { console.error("Error setting button state:", button, e); }
+             });
+         }
+
+        // --- Lesson/Mode Setup ---
+        function setupMode(mode) {
+            // console.log("--> Entering setupMode for:", mode); // Minimal logs
+            currentMode = mode;
+            if (targetDisplay) targetDisplay.textContent = '';
+            if (wordPracticeDisplay) wordPracticeDisplay.innerHTML = '';
+
+            hideMessage(); // Hide any previous messages
+            isGameOver = false; isPracticeOver = false; gameRunning = false;
+            score = 0; lives = 0; fallingItems = [];
+             if (animationFrameId) cancelAnimationFrame(animationFrameId);
+             if (gameInterval) clearInterval(gameInterval);
+             animationFrameId = null; gameInterval = null;
+            sessionStartTime = 0; totalRelevantKeyPresses = 0; correctKeyPresses = 0; targetsCompleted = 0;
+
+            setActiveButton(mode); // Use reverted logic
+
+            let infoText = ''; let showStartPrompt = false;
+            const isPracticeModeSetup = mode === Modes.HOME || mode === Modes.UPPER || mode === Modes.LOWER || mode === Modes.WORDS;
+
+            try {
+                // Explicitly hide all display elements first
+                if(targetDisplay) targetDisplay.style.display = 'none';
+                if(wordPracticeDisplay) wordPracticeDisplay.style.display = 'none';
+                if(canvas) canvas.style.display = 'none';
+
+                // Set display and call generation/start function
+                switch (mode) {
+                    case Modes.HOME: case Modes.UPPER: case Modes.LOWER:
+                        allowedChars = (mode === Modes.HOME) ? Keys.HOME : (mode === Modes.UPPER) ? Keys.UPPER : Keys.LOWER;
+                        infoText = `Type ${PRACTICE_TARGET_LIMIT} letters! (...)`; // Shortened
+                        if(targetDisplay) targetDisplay.style.display = 'block';
+                        generateNewTargetChar();
+                        showStartPrompt = true;
+                        break;
+                    case Modes.WORDS:
+                        allowedChars = Keys.HOME + Keys.UPPER + Keys.LOWER;
+                        infoText = `Type ${PRACTICE_TARGET_LIMIT} words!`;
+                         if(wordPracticeDisplay) wordPracticeDisplay.style.display = 'block';
+                        generateNewWord();
+                        showStartPrompt = true;
+                        break;
+                    case Modes.GAME:
+                        allowedChars = Keys.HOME + Keys.UPPER + Keys.LOWER;
+                        infoText = 'Type the falling letters!';
+                        if(canvas) canvas.style.display = 'block';
+                        startGame();
+                        break;
+                    default:
+                        allowedChars = '';
+                        infoText = 'Select a lesson to start!'; currentMode = Modes.NONE;
+                        if(targetDisplay) { targetDisplay.style.display = 'block'; targetDisplay.textContent = '?'; }
+                }
+            } catch (error) { console.error("Error during mode setup display logic:", error); }
+
+            if(lessonInfo) lessonInfo.textContent = infoText;
+            if (showStartPrompt) setTimeout(() => showFeedback("Start Typing!", "prompt", 1500), 100);
+            if (isPracticeModeSetup && targetsLeftDisplay) targetsLeftDisplay.textContent = `0/${PRACTICE_TARGET_LIMIT}`;
+            updateStatsDisplay();
+            // console.log("<-- Exiting setupMode for:", mode); // Minimal logs
+        }
+
+
+        // --- Practice Mode Logic ---
+        function generateNewTargetChar() {
+             if (!allowedChars || isPracticeOver) return;
+             const randomIndex = Math.floor(Math.random() * allowedChars.length);
+             targetChar = allowedChars[randomIndex];
+             if (targetDisplay) {
+                 targetDisplay.textContent = targetChar;
+                 // Add reflow trigger attempt
+                 // const _ = targetDisplay.offsetHeight; // Keep commented unless needed
+             } else console.error("#targetDisplay element not found!");
+         }
+        function generateNewWord() {
+             if (isPracticeOver) return;
+             let wordList = [...WordLists.HOME, ...WordLists.UPPER, ...WordLists.LOWER];
+             if (wordList.length === 0) { if(lessonInfo) lessonInfo.textContent = "No words available!"; return; }
+             const randomIndex = Math.floor(Math.random() * wordList.length);
+             currentWord = wordList[randomIndex];
+             currentWordIndex = 0;
+             displayCurrentWordState();
+         }
+        function displayCurrentWordState() {
+              if (!currentWord) return;
+              let html = '';
+              for(let i = 0; i < currentWord.length; i++) {
+                   html += (i < currentWordIndex) ? `<span class="typed-letter">${currentWord[i]}</span>` :
+                          (i === currentWordIndex) ? `<span class="current-letter">${currentWord[i]}</span>` :
+                          `<span class="pending-letter">${currentWord[i]}</span>`;
+              }
+              if (wordPracticeDisplay) {
+                  wordPracticeDisplay.innerHTML = html;
+                  // Add reflow trigger attempt
+                  // const _ = wordPracticeDisplay.offsetHeight; // Keep commented unless needed
+              } else console.error("#wordPracticeDisplay element not found!");
+          }
+        // --- Function to End Practice Session ---
+        function endPracticeSession() {
+             isPracticeOver = true;
+             if(lessonCompleteSound) { try { lessonCompleteSound(); } catch (e) { console.error("Error triggering lesson complete sound:", e); } }
+             updateStatsDisplay();
+
+             // Explicitly re-enable the completed button
+             lessonButtons.forEach(button => {
+                 if (button.dataset.mode === currentMode) {
+                     button.disabled = false;
+                     button.classList.remove('active');
+                 }
+             });
+
+             const finalAccuracy = accuracyDisplay ? accuracyDisplay.textContent : 'N/A';
+             const finalWPM = wpmDisplay ? wpmDisplay.textContent : 'N/A';
+             // Show message WITHOUT dismiss logic
+             showMessage(`Lesson Complete! 🎉\nAccuracy: ${finalAccuracy}%\nWPM: ${finalWPM}`, 0);
+         }
+
+
+        // --- Falling Game Logic ---
+        function createFallingItem() { /* ... includes check ... */ }
+        function drawItem(item) { /* ... includes check ... */ }
+        function updateItems() { /* ... includes sound call ... */ }
+        function drawGame() { /* ... includes checks and sets dimensions ... */ }
+        function gameLoop() { /* ... includes check ... */ }
+        function gameOver() { /* ... includes sound call, no dismiss needed */ }
+        function startGame() { /* ... includes logging, sound call ... */ }
+        // --- Falling Game Logic (End) ---
+
+
+        // --- Event Handlers ---
+        // ** Listener attachments moved inside DOMContentLoaded **
+
+        // --- Initial Setup ---
+        window.addEventListener('DOMContentLoaded', () => {
+             console.log("DOM Loaded. Initializing...");
+             initSounds();
+
+             if (!canvas || !lessonSelector || !targetDisplay || !statsDisplay || !lessonButtons) {
+                  console.error("Essential DOM elements not found on load. Aborting setup.");
+                  if (lessonInfo) lessonInfo.textContent = "Error loading elements!";
+                  return;
+             }
+             console.log("All essential elements found.");
+
+             // --- Attach Event Listeners HERE ---
+             lessonSelector.addEventListener('click', (event) => {
+                 const clickedButtonDisabled = event.target.disabled;
+                 const isActiveSession = gameRunning || (sessionStartTime > 0 && !isPracticeOver);
+
+                 if (isActiveSession || clickedButtonDisabled) {
+                     // console.log(`Interaction blocked: isActiveSession=${isActiveSession}, clickedButtonDisabled=${clickedButtonDisabled}`); // Minimal logs
+                     return;
+                 }
+
+                 if (event.target.tagName === 'BUTTON') {
+                     const selectedMode = event.target.dataset.mode;
+                     if (selectedMode) {
+                         setupMode(selectedMode);
+                     }
+                 }
+             });
+             // console.log("Click listener attached to lessonSelector."); // Minimal logs
+
+             window.addEventListener('keydown', (event) => {
+                 // No check for messageBox needed
+
+                 if (isPracticeOver || isGameOver) return;
+                 const keyPressed = event.key.toLowerCase();
+                 if (event.key.length > 1) return;
+
+                 try { if (Tone.context.state !== 'running') Tone.start(); } catch(e) { /* Ignore error */ }
+
+                 const isPracticeModeActive = currentMode === Modes.HOME || currentMode === Modes.UPPER || currentMode === Modes.LOWER || currentMode === Modes.WORDS;
+
+                 if (sessionStartTime === 0 && isPracticeModeActive) {
+                     sessionStartTime = Date.now();
+                     updateStatsDisplay();
+                 }
+
+                 if (isPracticeModeActive) { // Process key for practice
+                     if (!targetChar && !currentWord) return;
+                     totalRelevantKeyPresses++;
+                     let expectedChar = ''; let isCorrect = false;
+                     if (currentMode === Modes.WORDS) {
+                         expectedChar = currentWord ? currentWord[currentWordIndex] : '';
+                         isCorrect = (currentWord && currentWordIndex < currentWord.length && keyPressed === expectedChar);
+                     } else {
+                         expectedChar = targetChar;
+                         isCorrect = (keyPressed === targetChar);
+                     }
+
+                     if (isCorrect) {
+                         correctKeyPresses++; targetsCompleted++;
+                         if(typeSound) try { typeSound(); } catch(e) { /* Ignore error */ }
+                         if (targetsLeftDisplay) targetsLeftDisplay.textContent = `${targetsCompleted}/${PRACTICE_TARGET_LIMIT}`;
+
+                         if (targetsCompleted >= PRACTICE_TARGET_LIMIT) {
+                             if (currentMode === Modes.WORDS) { currentWordIndex++; displayCurrentWordState(); }
+                             endPracticeSession(); // End session (shows non-dismissible message)
+                         } else {
+                             if (currentMode === Modes.WORDS) {
+                                 currentWordIndex++; displayCurrentWordState();
+                                 if (currentWordIndex === currentWord.length) {
+                                     showFeedback("Great!", "correct", 800); setTimeout(generateNewWord, 400);
+                                 }
+                             } else {
+                                 showFeedback("Yes!", "correct"); generateNewTargetChar();
+                             }
+                         }
+                     } else { // Incorrect
+                         if(missSound) try { missSound(); } catch(e) { /* Ignore error */ }
+                         showFeedback("Oops!", "incorrect");
+                     }
+                     if (!isPracticeOver) updateStatsDisplay();
+
+                 } else if (currentMode === Modes.GAME && gameRunning && !isGameOver) { // Process key for game
+                     if (allowedChars.includes(keyPressed)) {
+                         totalRelevantKeyPresses++; let correctHit = false;
+                         for (let i = fallingItems.length - 1; i >= 0; i--) {
+                             if (fallingItems[i].letter === keyPressed) {
+                                 fallingItems.splice(i, 1); score++; correctHit = true;
+                             }
+                         }
+                         if (correctHit) {
+                             correctKeyPresses++;
+                              if(correctSound) try { correctSound(); } catch(e) { /* Ignore error */ }
+                             if (scoreDisplay) scoreDisplay.textContent = score;
+                             if (livesDisplay) livesDisplay.textContent = lives;
+                         } else {
+                             if(missSound) try { missSound(); } catch(e) { /* Ignore error */ }
+                         }
+                     }
+                 }
+             });
+             // console.log("Keydown listener attached to window."); // Minimal logs
+
+             // --- Set Initial Mode ---
+             setupMode(Modes.NONE);
+             console.log("Initial setup complete.");
+        });
+
+    </script>
+
+</body>
+</html>
