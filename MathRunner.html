@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perspective Runner Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: none; /* Prevent default touch actions like scrolling */
+            overflow: hidden; /* Hide scrollbars */
+            background-color: #e0f2fe; /* Lighter blue background */
+        }
+        canvas {
+            display: block;
+            max-width: 100%;
+            margin-left: auto;
+            margin-right: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        #messageOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex; /* Use flex for centering */
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 10; /* Keep overlay on top */
+        }
+        #messageBox {
+            background-color: white;
+            padding: 2rem 3rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        }
+        button {
+            padding: 0.75rem 1.5rem;
+            margin-top: 1rem;
+            border: none;
+            border-radius: 8px;
+            background-color: #3b82f6;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        button:hover {
+            background-color: #2563eb;
+        }
+        canvas {
+             min-height: 300px;
+        }
+        #timerDisplay {
+            font-size: 0.9rem;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen">
+
+    <div class="text-center mb-4 p-4 bg-white rounded-lg shadow">
+        <h1 class="text-2xl font-bold text-gray-800">Perspective Runner</h1>
+        <div class="flex justify-center items-baseline space-x-4">
+             <p class="text-lg text-blue-600">Score: <span id="score">1</span></p>
+             <p id="timerDisplay">Time: <span id="time">0.0</span>s</p>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="messageOverlay" class="hidden">
+        <div id="messageBox">
+            <p id="messageText" class="text-xl font-semibold mb-4"></p>
+            <p id="scoreBreakdownText" class="text-md text-gray-700 mb-2"></p>
+            <button id="restartButton">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Perspective Runner (v.17 - Dynamic Safety Check) - BASE VERSION
+
+        // --- DOM Elements ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const timeElement = document.getElementById('time');
+        const messageOverlay = document.getElementById('messageOverlay');
+        const messageText = document.getElementById('messageText');
+        const scoreBreakdownText = document.getElementById('scoreBreakdownText');
+        const restartButton = document.getElementById('restartButton');
+
+        // --- Game State Variables ---
+        let gameWidth, gameHeight;
+        let score = 1;
+        let player = { x: 0, y: 0, radius: 20, speed: 5, color: '#2563eb' };
+        let gates = [];
+        let obstacles = [];
+        let particles = [];
+        let baseGateSpeed = 4.0;
+        let baseObstacleSpeed = 4.5;
+        let baseGateSpawnInterval = 150;
+        let baseObstacleSpawnInterval = 50;
+        let currentBaseGateSpeed;
+        let currentBaseObstacleSpeed;
+        let currentGateSpawnInterval;
+        let currentObstacleSpawnInterval;
+        let frameCount = 0;
+        let difficultyIncreaseInterval = 300;
+        let speedIncreaseFactor = 0.1;
+        let intervalDecreaseFactor = 2;
+        const MAX_GATE_SPEED = 8;
+        const MAX_OBSTACLE_SPEED = 9;
+        const MIN_GATE_INTERVAL = 75;
+        const MIN_OBSTACLE_INTERVAL = 25;
+        let baseObstaclePenaltyPercent = 0.10;
+        let currentObstaclePenaltyPercent;
+        let obstaclePenaltyIncreaseFactor = 0.005;
+        const MAX_OBSTACLE_PENALTY_PERCENT = 0.50;
+        let gameRunning = true;
+        let touchStartX = null;
+        let playerTargetX = 0;
+        let nextPairId = 0;
+        let startTime = 0;
+        let elapsedTime = 0;
+
+        // --- Game Configuration Constants ---
+        const BASE_GATE_HEIGHT = 45;
+        const GATE_WIDTH_FACTOR = 0.48;
+        const BASE_OBSTACLE_RADIUS = 10;
+        const OBSTACLE_COLOR = '#dc2626';
+        const OBSTACLE_BORDER_COLOR = '#b91c1c';
+        const GATE_COLOR = '#60a5fa';
+        const GATE_BORDER_COLOR = '#2563eb';
+        const MIN_SCALE = 0.3;
+        const PLAYER_FONT_SIZE = 16;
+        const GATE_FONT_HEIGHT_FACTOR = 0.6;
+        const MIN_GATE_FONT_SIZE = 8;
+        const PATH_COLOR = '#cbd5e1';
+        const PATH_BOTTOM_WIDTH_FACTOR = 0.8;
+        const PATH_TOP_WIDTH_FACTOR = 0.3;
+        const VANISHING_POINT_Y = 0;
+        const TIME_BONUS_MULTIPLIER = 1;
+        const NEGATIVE_PAIR_THRESHOLD = 1000;
+        const WIN_TIME_SECONDS = 120;
+        const MIN_PIXEL_SPEED = 0.5;
+        // Particle Config
+        const PARTICLE_COUNT = 15;
+        const PARTICLE_LIFE = 30;
+        const PARTICLE_SIZE = 3;
+        const PARTICLE_SPEED_FACTOR = 3;
+        const PARTICLE_GRAVITY = 0.1;
+
+        // --- Utility Functions ---
+        function getRandomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+        function getRandomFloat(min, max) { return Math.random() * (max - min) + min; }
+        function showMessage(message, scoreBreakdown = "") { messageText.textContent = message; scoreBreakdownText.textContent = scoreBreakdown; messageOverlay.style.display = 'flex'; }
+        function hideMessage() { messageOverlay.style.display = 'none'; }
+        function getPathWidthAtY(y) {
+             if (!gameHeight || gameHeight <= 0) return 100;
+             const progress = Math.max(0, Math.min(1, (y - VANISHING_POINT_Y) / (gameHeight - VANISHING_POINT_Y)));
+             const bottomWidth = gameWidth * PATH_BOTTOM_WIDTH_FACTOR;
+             const topWidth = gameWidth * PATH_TOP_WIDTH_FACTOR;
+             return topWidth + (bottomWidth - topWidth) * progress;
+        }
+        function getPathStartXAtY(y) {
+             if (!gameWidth || gameWidth <= 0) return 0;
+            const currentWidth = getPathWidthAtY(y);
+            return (gameWidth - currentWidth) / 2;
+        }
+        function getScaleAtY(y) {
+             if (!gameHeight || gameHeight <= 0) return MIN_SCALE;
+            const clampedY = Math.max(VANISHING_POINT_Y, Math.min(gameHeight, y));
+            const progress = (clampedY - VANISHING_POINT_Y) / (gameHeight - VANISHING_POINT_Y);
+            if (gameHeight === VANISHING_POINT_Y) return 1.0;
+            return MIN_SCALE + (1.0 - MIN_SCALE) * Math.max(0, progress);
+        }
+
+        // --- Math Operations ---
+        function applyOperation(currentScore, operation, value) {
+            switch (operation) {
+                case 'add': return currentScore + value;
+                case 'subtract': return Math.max(0, currentScore - value);
+                case 'multiply': if (currentScore === 0) return 0; return currentScore * value;
+                case 'divide': if (currentScore <= 0 || value === 0) return 0; return Math.floor(currentScore / value);
+                default: console.warn("Unknown operation:", operation); return currentScore;
+            }
+        }
+        // Helper to check if an operation would be lethal *based on the current score*
+        function isLethal(currentScore, operation, value) {
+             return applyOperation(currentScore, operation, value) <= 0;
+        }
+
+        // --- Game Setup ---
+        function resizeCanvas() {
+            const maxWidth = 600; const aspectRatio = 2 / 3;
+            const windowWidth = window.innerWidth || 300;
+            gameWidth = Math.min(windowWidth * 0.95, maxWidth);
+            gameHeight = gameWidth / aspectRatio;
+            const windowHeight = window.innerHeight || 500;
+            if (gameHeight > windowHeight * 0.85) { gameHeight = windowHeight * 0.85; gameWidth = gameHeight * aspectRatio; }
+            if (!gameWidth || !gameHeight || gameWidth <= 0 || gameHeight <= 0 || isNaN(gameWidth) || isNaN(gameHeight)) {
+                console.error("Invalid canvas dimensions calculated, using fallback:", gameWidth, gameHeight);
+                gameWidth = 300; gameHeight = 450;
+            }
+            canvas.width = gameWidth; canvas.height = gameHeight;
+            console.log(`Canvas resized to: ${gameWidth} x ${gameHeight}`);
+        }
+
+        /**
+         * Creates configuration for a single gate.
+         * Removed safety check logic as it's handled dynamically on collision.
+         * @param {boolean} forceNegative - If true, only generates subtract or divide.
+         */
+        function createGateConfig(forceNegative = false) { // <<< Removed mustBeSafe parameter
+            const allOperations = ['add', 'subtract', 'multiply', 'divide'];
+            const negativeOperations = ['subtract', 'divide'];
+            let operation;
+            if (forceNegative) { operation = negativeOperations[getRandomInt(0, negativeOperations.length - 1)]; }
+            else { operation = allOperations[getRandomInt(0, allOperations.length - 1)]; }
+
+            let value; let text; let gateValueForCollision;
+
+            switch (operation) {
+                case 'add': value = getRandomInt(1, 15); text = `+${value}`; gateValueForCollision = value; break;
+                case 'subtract': value = getRandomInt(1, Math.max(1, score + 5)); value = Math.min(value, 50 + Math.floor(score/5)); text = `-${value}`; gateValueForCollision = value; break;
+                case 'multiply': value = getRandomInt(2, 3); text = `x${value}`; gateValueForCollision = value; break;
+                case 'divide': value = getRandomInt(2, Math.max(2, score + 5)); text = `/${value}`; gateValueForCollision = value; break;
+            }
+            // Basic validation
+            if ((operation === 'subtract' || operation === 'divide') && gateValueForCollision <= 0) {
+                gateValueForCollision = (operation === 'subtract' ? 1 : 2);
+                text = (operation === 'subtract') ? '-1' : '/2';
+            }
+            return { operation, value: gateValueForCollision, text };
+        }
+
+        /**
+         * Spawns a pair of gates. Safety is checked on collision now.
+         */
+        function spawnGatePair() {
+            const pairId = nextPairId++; const spawnY = -BASE_GATE_HEIGHT;
+            const forceNegative = score >= NEGATIVE_PAIR_THRESHOLD;
+
+            // Generate two configs (no safety check needed here)
+            let gate1Config = createGateConfig(forceNegative);
+            let gate2Config = createGateConfig(forceNegative);
+
+            // Ensure they are distinct
+            while (gate1Config.operation === gate2Config.operation && gate1Config.value === gate2Config.value) {
+                gate2Config = createGateConfig(forceNegative);
+            }
+
+            gates.push({ type: 'gate', relativeX: 0.25, y: spawnY, baseHeight: BASE_GATE_HEIGHT, pairId: pairId, ...gate1Config, color: GATE_COLOR });
+            gates.push({ type: 'gate', relativeX: 0.75, y: spawnY, baseHeight: BASE_GATE_HEIGHT, pairId: pairId, ...gate2Config, color: GATE_COLOR });
+        }
+
+        function spawnObstacle() {
+             const spawnY = -BASE_OBSTACLE_RADIUS * 2; const pathWidthAtSpawn = getPathWidthAtY(spawnY); const pathStartXAtSpawn = getPathStartXAtY(spawnY);
+             const minXCenter = pathStartXAtSpawn + BASE_OBSTACLE_RADIUS; const maxXCenter = pathStartXAtSpawn + pathWidthAtSpawn - BASE_OBSTACLE_RADIUS;
+             let centerX; if (minXCenter >= maxXCenter) { centerX = gameWidth / 2; } else { centerX = getRandomInt(minXCenter, maxXCenter); }
+             let relativeX = 0.5; if (pathWidthAtSpawn > 0) { relativeX = (centerX - pathStartXAtSpawn) / pathWidthAtSpawn; }
+             obstacles.push({ type: 'obstacle', relativeX: relativeX, y: spawnY, baseRadius: BASE_OBSTACLE_RADIUS, color: OBSTACLE_COLOR });
+         }
+
+         function spawnParticles(x, y, color) {
+             for (let i = 0; i < PARTICLE_COUNT; i++) {
+                 particles.push({
+                     x: x, y: y,
+                     vx: getRandomFloat(-PARTICLE_SPEED_FACTOR, PARTICLE_SPEED_FACTOR),
+                     vy: getRandomFloat(-PARTICLE_SPEED_FACTOR * 1.5, -PARTICLE_SPEED_FACTOR * 0.5),
+                     size: getRandomFloat(PARTICLE_SIZE * 0.5, PARTICLE_SIZE * 1.5),
+                     color: color, life: PARTICLE_LIFE, opacity: 1.0
+                 });
+             }
+         }
+
+        function resetGame() {
+            score = 1; scoreElement.textContent = score; gates = []; obstacles = []; particles = [];
+            frameCount = 0; nextPairId = 0;
+            currentBaseGateSpeed = baseGateSpeed; currentBaseObstacleSpeed = baseObstacleSpeed;
+            currentGateSpawnInterval = baseGateSpawnInterval; currentObstacleSpawnInterval = baseObstacleSpawnInterval;
+            currentObstaclePenaltyPercent = baseObstaclePenaltyPercent;
+            gameRunning = true;
+            startTime = performance.now(); elapsedTime = 0; timeElement.textContent = '0.0';
+            resizeCanvas();
+            player.y = gameHeight - player.radius - 20;
+            player.x = gameWidth / 2;
+            playerTargetX = player.x;
+            hideMessage();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- Drawing Functions ---
+        function drawPlayer() { /* ... (no changes needed) ... */
+            ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+            ctx.fillStyle = player.color; ctx.fill(); ctx.closePath();
+            ctx.strokeStyle = '#1e40af'; ctx.lineWidth = 2; ctx.stroke();
+            ctx.fillStyle = 'white'; const fontSize = Math.min(PLAYER_FONT_SIZE, player.radius * 0.8);
+            ctx.font = `bold ${fontSize}px Inter`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(score, player.x, player.y);
+        }
+        function drawSingleGate(gate) { /* ... (no changes needed) ... */
+            const currentPathWidth = getPathWidthAtY(gate.y); const currentGateWidth = currentPathWidth * GATE_WIDTH_FACTOR;
+            const scale = getScaleAtY(gate.y); const scaledHeight = gate.baseHeight * scale;
+            const scaledFontSize = Math.max(MIN_GATE_FONT_SIZE, scaledHeight * GATE_FONT_HEIGHT_FACTOR);
+            const currentPathStartX = getPathStartXAtY(gate.y); const currentCenterX = currentPathStartX + currentPathWidth * gate.relativeX;
+            const drawX = currentCenterX - currentGateWidth / 2;
+            if (gate.y + scaledHeight < 0 || gate.y > gameHeight) return;
+            ctx.fillStyle = gate.color; ctx.fillRect(drawX, gate.y, currentGateWidth, scaledHeight);
+            ctx.strokeStyle = GATE_BORDER_COLOR; ctx.lineWidth = 2 * scale; ctx.strokeRect(drawX, gate.y, currentGateWidth, scaledHeight);
+            ctx.fillStyle = 'white'; ctx.font = `bold ${scaledFontSize}px Inter`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(gate.text, currentCenterX, gate.y + scaledHeight * 0.55);
+        }
+        function drawSingleObstacle(obstacle) { /* ... (no changes needed) ... */
+             const scale = getScaleAtY(obstacle.y); const scaledRadius = obstacle.baseRadius * scale;
+             const currentPathWidth = getPathWidthAtY(obstacle.y); const currentPathStartX = getPathStartXAtY(obstacle.y);
+             const currentCenterX = currentPathStartX + currentPathWidth * obstacle.relativeX;
+             if (scaledRadius < 1 || obstacle.y + scaledRadius < 0 || obstacle.y - scaledRadius > gameHeight) return;
+             ctx.beginPath(); ctx.arc(currentCenterX, obstacle.y, scaledRadius, 0, Math.PI * 2);
+             ctx.fillStyle = obstacle.color; ctx.fill(); ctx.closePath();
+             ctx.beginPath(); ctx.arc(currentCenterX, obstacle.y, scaledRadius, 0, Math.PI * 2);
+             ctx.strokeStyle = OBSTACLE_BORDER_COLOR; ctx.lineWidth = 1.5 * scale; ctx.stroke(); ctx.closePath();
+         }
+        function drawPath() { /* ... (no changes needed) ... */
+            const pathBottomWidth = gameWidth * PATH_BOTTOM_WIDTH_FACTOR; const pathTopWidth = gameWidth * PATH_TOP_WIDTH_FACTOR;
+            const pathBottomStart = (gameWidth - pathBottomWidth) / 2; const pathTopStart = (gameWidth - pathTopWidth) / 2;
+            ctx.fillStyle = PATH_COLOR; ctx.beginPath(); ctx.moveTo(pathBottomStart, gameHeight); ctx.lineTo(pathTopStart, VANISHING_POINT_Y);
+            ctx.lineTo(pathTopStart + pathTopWidth, VANISHING_POINT_Y); ctx.lineTo(pathBottomStart + pathBottomWidth, gameHeight); ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(gameWidth / 2, gameHeight); ctx.lineTo(gameWidth / 2, VANISHING_POINT_Y); ctx.stroke();
+        }
+        function drawParticles() { /* ... (no changes needed) ... */
+            for (let i = 0; i < particles.length; i++) {
+                const p = particles[i];
+                ctx.save(); ctx.globalAlpha = p.opacity; ctx.fillStyle = p.color;
+                ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+                ctx.restore();
+            }
+        }
+
+        // --- Game Logic ---
+        function updatePlayerPosition() { /* ... (no changes needed) ... */
+            const dx = playerTargetX - player.x; player.x += dx * 0.15;
+            const pathWidthAtPlayerY = getPathWidthAtY(player.y); const pathStartXAtPlayerY = getPathStartXAtY(player.y);
+            const minX = pathStartXAtPlayerY + player.radius; const maxX = pathStartXAtPlayerY + pathWidthAtPlayerY - player.radius;
+            player.x = Math.max(minX, Math.min(maxX, player.x));
+        }
+
+        /**
+         * Updates gates, checks lethality on collision, removes ONLY hit gate.
+         */
+        function updateGates() {
+            for (let i = gates.length - 1; i >= 0; i--) {
+                const gate = gates[i];
+                const scale = getScaleAtY(gate.y); const adjustedSpeed = Math.max(MIN_PIXEL_SPEED, currentBaseGateSpeed * (scale ** 2)); gate.y += adjustedSpeed;
+                const currentPathWidth = getPathWidthAtY(gate.y); const currentGateWidth = currentPathWidth * GATE_WIDTH_FACTOR; const scaledHeight = gate.baseHeight * scale;
+                const currentPathStartX = getPathStartXAtY(gate.y); const currentGateCenterX = currentPathStartX + currentPathWidth * gate.relativeX;
+                const gateRectX = currentGateCenterX - currentGateWidth / 2; const gateRectY = gate.y;
+                const closestX = Math.max(gateRectX, Math.min(player.x, gateRectX + currentGateWidth)); const closestY = Math.max(gateRectY, Math.min(player.y, gateRectY + scaledHeight));
+                const distX = player.x - closestX; const distY = player.y - closestY; const distanceSquared = (distX * distX) + (distY * distY);
+
+                if (distanceSquared < (player.radius * player.radius)) {
+                    // <<< Check lethality BEFORE applying operation >>>
+                    if (!isLethal(score, gate.operation, gate.value)) {
+                        // Apply operation only if it's NOT lethal
+                        score = applyOperation(score, gate.operation, gate.value);
+                        scoreElement.textContent = score;
+                    } else {
+                        // If lethal, maybe flash the gate red briefly? (Optional visual feedback)
+                        console.log("Lethal gate hit, score not changed.");
+                    }
+                    spawnParticles(player.x, player.y, gate.color);
+                    gates.splice(i, 1); // Remove the hit gate regardless
+
+                    // Check game over only if score actually reached 0 (from a non-lethal subtract)
+                    if (score <= 0) {
+                        gameOver();
+                        return;
+                    }
+                    // No break needed, continue checking other gates
+                } else if (gate.y > gameHeight) { gates.splice(i, 1); }
+            }
+        }
+
+        function updateObstacles() { /* ... (no changes needed) ... */
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obstacle = obstacles[i];
+                const scale = getScaleAtY(obstacle.y); const adjustedSpeed = Math.max(MIN_PIXEL_SPEED, currentBaseObstacleSpeed * (scale ** 2)); obstacle.y += adjustedSpeed;
+                const scaledRadius = obstacle.baseRadius * scale;
+                const currentPathWidth = getPathWidthAtY(obstacle.y); const currentPathStartX = getPathStartXAtY(obstacle.y);
+                const obstacleCenterX = currentPathStartX + currentPathWidth * obstacle.relativeX; const obstacleCenterY = obstacle.y;
+                const dx = player.x - obstacleCenterX; const dy = player.y - obstacleCenterY; const distanceSquared = dx * dx + dy * dy; const radiiSumSquared = (player.radius + scaledRadius) * (player.radius + scaledRadius);
+                if (distanceSquared < radiiSumSquared) {
+                    const penalty = Math.ceil(score * currentObstaclePenaltyPercent); score = Math.max(0, score - penalty); scoreElement.textContent = score;
+                    spawnParticles(player.x, player.y, obstacle.color);
+                    obstacles.splice(i, 1);
+                    if (score <= 0) { gameOver(); return; }
+                } else if (obstacle.y - scaledRadius > gameHeight) { obstacles.splice(i, 1); }
+            }
+        }
+        function updateParticles() { /* ... (no changes needed) ... */
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx; p.y += p.vy; p.vy += PARTICLE_GRAVITY;
+                p.life--; p.opacity = p.life / PARTICLE_LIFE;
+                if (p.life <= 0 || p.y > gameHeight) { particles.splice(i, 1); }
+            }
+        }
+        function increaseDifficulty() { /* ... (no changes needed) ... */
+             currentBaseGateSpeed = Math.min(MAX_GATE_SPEED, currentBaseGateSpeed + speedIncreaseFactor); currentBaseObstacleSpeed = Math.min(MAX_OBSTACLE_SPEED, currentBaseObstacleSpeed + speedIncreaseFactor);
+             currentGateSpawnInterval = Math.max(MIN_GATE_INTERVAL, currentGateSpawnInterval - intervalDecreaseFactor); currentObstacleSpawnInterval = Math.max(MIN_OBSTACLE_INTERVAL, currentObstacleSpawnInterval - intervalDecreaseFactor);
+             currentObstaclePenaltyPercent = Math.min(MAX_OBSTACLE_PENALTY_PERCENT, currentObstaclePenaltyPercent + obstaclePenaltyIncreaseFactor);
+        }
+        function gameOver() { /* ... (no changes needed) ... */
+            if (!gameRunning) return; gameRunning = false; elapsedTime = performance.now() - startTime; console.log("Game Over!");
+            const timeBonus = Math.floor(elapsedTime / 1000) * TIME_BONUS_MULTIPLIER; const finalScore = Math.max(0, score) + timeBonus;
+            const scoreBreakdown = `Score: ${Math.max(0, score)} | Time Bonus: ${timeBonus} (${(elapsedTime / 1000).toFixed(1)}s)`;
+            showMessage(`Game Over! Final Score: ${finalScore}`, scoreBreakdown);
+        }
+        function gameWin() { /* ... (no changes needed) ... */
+            if (!gameRunning) return; gameRunning = false; elapsedTime = performance.now() - startTime; console.log("Player Wins!");
+            const timeBonus = Math.floor(elapsedTime / 1000) * TIME_BONUS_MULTIPLIER; const finalScore = Math.max(0, score) + timeBonus;
+            const scoreBreakdown = `Score: ${Math.max(0, score)} | Time Bonus: ${timeBonus} (${(elapsedTime / 1000).toFixed(1)}s)`;
+            showMessage(`You Win! Final Score: ${finalScore}`, scoreBreakdown);
+        }
+
+        // --- Main Game Loop ---
+        function gameLoop() { /* ... (no changes needed) ... */
+            if (!gameRunning) return;
+            elapsedTime = performance.now() - startTime;
+            if (elapsedTime / 1000 >= WIN_TIME_SECONDS) { gameWin(); return; }
+            timeElement.textContent = (elapsedTime / 1000).toFixed(1);
+            ctx.clearRect(0, 0, gameWidth, gameHeight); drawPath();
+            let renderables = [
+                ...gates.map(g => { const scale = getScaleAtY(g.y); const scaledHeight = g.baseHeight * scale; return { ...g, type: 'gate', sortY: g.y + scaledHeight / 2 }; }),
+                ...obstacles.map(o => ({ ...o, type: 'obstacle', sortY: o.y }))
+            ];
+            renderables.sort((a, b) => a.sortY - b.sortY);
+            renderables.forEach(item => { if (item.type === 'gate') { drawSingleGate(item); } else if (item.type === 'obstacle') { drawSingleObstacle(item); } });
+            drawParticles();
+            frameCount++;
+            if (frameCount % difficultyIncreaseInterval === 0) { increaseDifficulty(); }
+            if (frameCount % Math.floor(currentGateSpawnInterval) === 0) { spawnGatePair(); }
+            if (frameCount % Math.floor(currentObstacleSpawnInterval) === 0) { spawnObstacle(); }
+            updateGates(); if (!gameRunning) return;
+            updateObstacles(); if (!gameRunning) return;
+            updateParticles();
+            updatePlayerPosition();
+            drawPlayer();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- Input Handling ---
+        function handleMove(clientX) { /* ... (no changes needed) ... */
+            if (!gameRunning) return; const rect = canvas.getBoundingClientRect(); if (!rect || rect.width === 0) return;
+            const scaleX = canvas.width / rect.width; const canvasX = (clientX - rect.left) * scaleX; playerTargetX = canvasX;
+        }
+
+        // --- Event Listeners ---
+        /* ... (no changes needed) ... */
+        canvas.addEventListener('mousedown', (e) => { if (e.button === 0) { handleMove(e.clientX); canvas.onmousemove = (moveEvent) => handleMove(moveEvent.clientX); } });
+        canvas.addEventListener('mouseup', () => { canvas.onmousemove = null; });
+        canvas.addEventListener('mouseleave', () => { canvas.onmousemove = null; });
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); if (e.touches.length > 0) { touchStartX = e.touches[0].clientX; handleMove(touchStartX); } }, { passive: false });
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); if (e.touches.length > 0) { handleMove(e.touches[0].clientX); } }, { passive: false });
+        canvas.addEventListener('touchend', (e) => { e.preventDefault(); touchStartX = null; }, { passive: false });
+        restartButton.addEventListener('click', resetGame);
+
+        // --- Initialization ---
+        window.addEventListener('resize', resizeCanvas);
+        resetGame(); // Calls resizeCanvas internally
+
+    </script>
+
+</body>
+</html>
