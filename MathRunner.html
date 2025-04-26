@@ -229,7 +229,7 @@
     </div>
 
     <script>
-        // Perspective Runner (v.29 - High Score Gate Rule)
+        // Perspective Runner (v.30 - Instant Movement)
 
         // --- DOM Elements ---
         const canvas = document.getElementById('gameCanvas');
@@ -324,7 +324,13 @@
         let synth = null;
 
         // --- Initialize Audio Components ---
-        function setupAudio() { /* ... remains same ... */
+        function setupAudio() { /* ... */ }
+        async function startAudio() { /* ... */ }
+        function stopAudioLoop() { /* ... */ }
+        function changeSound() { /* ... */ }
+        function toggleMute() { /* ... */ }
+        // (Audio functions remain the same as v.29)
+        function setupAudio() {
              if (typeof Tone === 'undefined') { console.warn("Tone.js not loaded. Audio disabled."); return; }
             try {
                 synth = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.02, decay: 0.1, sustain: 0.2, release: 0.5 }, volume: -18 }).toDestination();
@@ -341,9 +347,7 @@
                 console.log("Audio components initialized with", backgroundLoops.length, "loops.");
             } catch (e) { console.error("Error setting up audio components:", e); synth = null; backgroundLoops = []; }
         }
-
-        // --- Start Audio Context and the *Selected* Loop ---
-        async function startAudio() { /* ... remains same ... */
+        async function startAudio() {
             if (audioInitialized || !Tone || backgroundLoops.length === 0 || !synth) return;
             if (Tone.context.state === 'running' && backgroundLoops[currentLoopIndex]?.state === 'started') return;
             try {
@@ -354,17 +358,13 @@
                 audioInitialized = true; console.log("Audio context and selected loop engaged.");
             } catch (e) { console.error("Error starting audio:", e); audioInitialized = false; }
         }
-
-        // --- Stop the *Currently Active* Loop ---
-        function stopAudioLoop() { /* ... remains same ... */
+        function stopAudioLoop() {
             if (!audioInitialized || backgroundLoops.length === 0) return;
             const currentLoop = backgroundLoops[currentLoopIndex];
             if (currentLoop && currentLoop.state === 'started') { currentLoop.stop(0); console.log(`Background loop ${currentLoopIndex + 1} stopped.`); }
             else if (currentLoop) { /* console.log(`Background loop ${currentLoopIndex + 1} already stopped or not initialized.`); */ }
         }
-
-        // --- Change Selected Sound ---
-        function changeSound() { /* ... remains same ... */
+        function changeSound() {
             const newIndex = parseInt(soundSelect.value, 10);
             if (isNaN(newIndex) || newIndex < 0 || newIndex >= backgroundLoops.length || newIndex === currentLoopIndex) return;
             console.log(`Changing sound from ${currentLoopIndex + 1} to ${newIndex + 1}`);
@@ -380,9 +380,7 @@
                 }
             } else { currentLoopIndex = newIndex; }
         }
-
-        // --- Toggle Mute ---
-        function toggleMute() { /* ... remains same ... */
+        function toggleMute() {
             isMuted = !isMuted;
             if (Tone && Tone.Destination) {
                  Tone.Destination.mute = isMuted; muteButton.textContent = isMuted ? 'Unmute' : 'Mute'; console.log("Audio muted:", isMuted);
@@ -396,6 +394,7 @@
             } else { console.warn("Cannot toggle mute: Tone.js not fully initialized."); }
         }
 
+
         // --- Utility Functions ---
         function getRandomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
         function getRandomFloat(min, max) { return Math.random() * (max - min) + min; }
@@ -406,7 +405,10 @@
         function getScaleAtY(y) { if (!gameHeight || gameHeight <= 0) return MIN_SCALE; const clampedY = Math.max(VANISHING_POINT_Y, Math.min(gameHeight, y)); if (gameHeight === VANISHING_POINT_Y) return 1.0; const progress = (clampedY - VANISHING_POINT_Y) / (gameHeight - VANISHING_POINT_Y); return MIN_SCALE + (1.0 - MIN_SCALE) * Math.max(0, progress); }
 
         // --- Math Operations ---
-        function applyOperation(currentScore, operation, value) { /* ... remains same ... */
+        function applyOperation(currentScore, operation, value) { /* ... */ }
+        function isOperationLethal(currentScoreValue, operation, value) { /* ... */ }
+        // (Math functions remain the same as v.29)
+        function applyOperation(currentScore, operation, value) {
             switch (operation) {
                 case 'add': return currentScore + value;
                 case 'subtract': return Math.max(0, currentScore - value);
@@ -415,26 +417,32 @@
                 default: console.warn("Unknown operation:", operation); return currentScore;
             }
         }
-         function isOperationLethal(currentScoreValue, operation, value) { return applyOperation(currentScoreValue, operation, value) <= 0; }
+        function isOperationLethal(currentScoreValue, operation, value) { return applyOperation(currentScoreValue, operation, value) <= 0; }
+
 
         // --- Hall of Fame Functions ---
-        function loadHighScores() { /* ... remains same ... */
+        function loadHighScores() { /* ... */ }
+        function saveHighScores() { /* ... */ }
+        function addHighScore(name, scoreValue) { /* ... */ }
+        function displayHighScores() { /* ... */ }
+        // (HoF functions remain the same as v.29)
+        function loadHighScores() {
             const scoresJSON = localStorage.getItem('perspectiveRunnerHighScores');
             highScores = scoresJSON ? JSON.parse(scoresJSON) : [];
             highScores.sort((a, b) => b.score - a.score);
             console.log("High scores loaded:", highScores);
         }
-        function saveHighScores() { /* ... remains same ... */
+        function saveHighScores() {
             try { localStorage.setItem('perspectiveRunnerHighScores', JSON.stringify(highScores)); console.log("High scores saved."); }
             catch (e) { console.error("Error saving high scores to localStorage:", e); }
         }
-        function addHighScore(name, scoreValue) { /* ... remains same ... */
+        function addHighScore(name, scoreValue) {
             const validName = name.trim() || "AAA"; const finalScore = Math.round(scoreValue);
             if (isNaN(finalScore)) { console.error("Invalid score value for high score:", scoreValue); return; }
             highScores.push({ name: validName, score: finalScore }); highScores.sort((a, b) => b.score - a.score);
             highScores = highScores.slice(0, MAX_HIGH_SCORES); saveHighScores();
         }
-        function displayHighScores() { /* ... remains same ... */
+        function displayHighScores() {
             hallOfFameList.innerHTML = '';
             if (highScores.length === 0) { hallOfFameList.innerHTML = '<li>No scores yet!</li>'; return; }
             highScores.forEach((scoreEntry, index) => {
@@ -446,7 +454,18 @@
         }
 
         // --- Game Setup & Flow ---
-        function resizeCanvas() { /* ... remains same ... */
+        function resizeCanvas() { /* ... */ }
+        function handleWindowResize() { /* ... */ }
+        function createGateConfig(forceNegative = false, operationType = null) { /* ... */ }
+        function spawnGatePair() { /* ... */ }
+        function spawnObstacle() { /* ... */ }
+        function spawnParticles(x, y, color) { /* ... */ }
+        function updateScoreDisplay() { /* ... */ }
+        function startGame() { /* ... */ }
+        function showStartScreen() { /* ... */ }
+        function showGameScreen() { /* ... */ }
+        // (Setup functions remain the same as v.29)
+        function resizeCanvas() {
             const container = document.getElementById('gameCanvasContainer'); if (!container) return;
             const maxWidth = 600; const aspectRatio = 2 / 3; let newWidth = Math.min(container.offsetWidth, maxWidth); let newHeight = newWidth / aspectRatio;
             const availableHeight = window.innerHeight * 0.85 - (gameScreen.offsetTop || 100); if (newHeight > availableHeight && availableHeight > 100) { newHeight = availableHeight; newWidth = newHeight * aspectRatio; }
@@ -455,21 +474,9 @@
             if (gameRunning && player) { /* Reposition player if needed */ }
         }
         function handleWindowResize() { resizeCanvas(); console.log(`Canvas resized via window event to: ${gameWidth} x ${gameHeight}`); }
-
         function createGateConfig(forceNegative = false, operationType = null) {
-            // Allow forcing a specific operation type (used for the high-score rule)
-            const allOperations = ['add', 'subtract', 'multiply', 'divide'];
-            const negativeOperations = ['subtract', 'divide'];
-            let operation = operationType; // Use provided type if available
-
-            if (!operation) { // If type not forced, generate normally
-                if (forceNegative) {
-                    operation = negativeOperations[getRandomInt(0, negativeOperations.length - 1)];
-                } else {
-                    operation = allOperations[getRandomInt(0, allOperations.length - 1)];
-                }
-            }
-
+            const allOperations = ['add', 'subtract', 'multiply', 'divide']; const negativeOperations = ['subtract', 'divide']; let operation = operationType;
+            if (!operation) { if (forceNegative) { operation = negativeOperations[getRandomInt(0, negativeOperations.length - 1)]; } else { operation = allOperations[getRandomInt(0, allOperations.length - 1)]; } }
             let value; let text; let gateValueForCollision;
             switch (operation) {
                 case 'add': value = getRandomInt(1, 15); text = `+${value}`; gateValueForCollision = value; break;
@@ -477,86 +484,32 @@
                 case 'multiply': value = getRandomInt(2, 3); text = `x${value}`; gateValueForCollision = value; break;
                 case 'divide': value = getRandomInt(2, Math.max(2, Math.round(score / 2) + 1)); value = Math.max(2, value); text = `/${value}`; gateValueForCollision = value; break;
             }
-            // Validation (ensure valid values for subtract/divide)
-            if (operation === 'divide' && gateValueForCollision <= 0) { gateValueForCollision = 2; text = '/2'; }
-            if (operation === 'subtract' && gateValueForCollision <= 0) { gateValueForCollision = 1; text = '-1'; }
+            if (operation === 'divide' && gateValueForCollision <= 0) { gateValueForCollision = 2; text = '/2'; } if (operation === 'subtract' && gateValueForCollision <= 0) { gateValueForCollision = 1; text = '-1'; }
             return { operation, value: gateValueForCollision, text };
         }
-
-        /**
-         * Spawns a pair of gates, ensuring:
-         * 1. At least one is not lethal based on the current score.
-         * 2. If score >= threshold (forceNegative), the pair is not two subtractions.
-         */
         function spawnGatePair() {
-            const pairId = nextPairId++;
-            const spawnY = -BASE_GATE_HEIGHT;
-            const forceNegative = score >= NEGATIVE_PAIR_THRESHOLD;
-            let attempts = 0;
-            let gate1Config, gate2Config;
-            let isG1Lethal, isG2Lethal;
-            let isValidPair = false;
-
-            // Loop until a valid pair is generated
+            const pairId = nextPairId++; const spawnY = -BASE_GATE_HEIGHT; const forceNegative = score >= NEGATIVE_PAIR_THRESHOLD; let attempts = 0; let gate1Config, gate2Config; let isG1Lethal, isG2Lethal; let isValidPair = false;
             do {
-                gate1Config = createGateConfig(forceNegative);
-                gate2Config = createGateConfig(forceNegative);
-
-                // Ensure the two gates are distinct (different operation or value)
-                while (gate1Config.operation === gate2Config.operation && gate1Config.value === gate2Config.value) {
-                    gate2Config = createGateConfig(forceNegative);
-                }
-
-                // --- High Score Rule: Prevent double subtraction ---
-                if (forceNegative && gate1Config.operation === 'subtract' && gate2Config.operation === 'subtract') {
-                    // If both are subtract, force the second one to be divide
-                    console.log("High score rule: Forcing divide instead of second subtract.");
-                    gate2Config = createGateConfig(true, 'divide'); // Force negative AND force 'divide' type
-                    // Re-ensure distinctness after forcing type (unlikely to clash now, but safe)
-                    while (gate1Config.operation === gate2Config.operation && gate1Config.value === gate2Config.value) {
-                         gate2Config = createGateConfig(true, 'divide');
-                    }
-                }
-                // --- End High Score Rule ---
-
-
-                // Check lethality based on the *current* game score
-                isG1Lethal = isOperationLethal(score, gate1Config.operation, gate1Config.value);
-                isG2Lethal = isOperationLethal(score, gate2Config.operation, gate2Config.value);
-
-                // Check if the pair is valid (at least one is not lethal)
+                gate1Config = createGateConfig(forceNegative); gate2Config = createGateConfig(forceNegative);
+                while (gate1Config.operation === gate2Config.operation && gate1Config.value === gate2Config.value) { gate2Config = createGateConfig(forceNegative); }
+                if (forceNegative && gate1Config.operation === 'subtract' && gate2Config.operation === 'subtract') { console.log("High score rule: Forcing divide instead of second subtract."); gate2Config = createGateConfig(true, 'divide'); while (gate1Config.operation === gate2Config.operation && gate1Config.value === gate2Config.value) { gate2Config = createGateConfig(true, 'divide'); } }
+                isG1Lethal = isOperationLethal(score, gate1Config.operation, gate1Config.value); isG2Lethal = isOperationLethal(score, gate2Config.operation, gate2Config.value);
                 isValidPair = !(isG1Lethal && isG2Lethal);
-
                 attempts++;
-                if (attempts > MAX_SPAWN_ATTEMPTS && !isValidPair) {
-                    console.warn("Max spawn attempts reached for safety. Forcing a safe gate.");
-                    // Force one gate to be safe if max attempts are hit (e.g., +1)
-                    gate2Config = { operation: 'add', value: 1, text: '+1'};
-                    isValidPair = true; // Mark as valid to exit loop
-                }
-
-            } while (!isValidPair); // Keep looping if BOTH are lethal
-
-            // Add the validated gate pair to the game state
+                if (attempts > MAX_SPAWN_ATTEMPTS && !isValidPair) { console.warn("Max spawn attempts reached for safety. Forcing a safe gate."); gate2Config = { operation: 'add', value: 1, text: '+1'}; isValidPair = true; }
+            } while (!isValidPair);
             gates.push({ type: 'gate', relativeX: 0.25, y: spawnY, baseHeight: BASE_GATE_HEIGHT, pairId: pairId, ...gate1Config, color: GATE_COLOR, passed: false });
             gates.push({ type: 'gate', relativeX: 0.75, y: spawnY, baseHeight: BASE_GATE_HEIGHT, pairId: pairId, ...gate2Config, color: GATE_COLOR, passed: false });
-
-            // Optional: Log if a regeneration occurred due to lethality check
-            if (attempts > 1 && isValidPair) { // Log only if regenerated for lethality
-                 console.log(`Gate pair regenerated ${attempts - 1} times for lethality. Final pair: (${gate1Config.text}, ${gate2Config.text})`);
-            }
+            if (attempts > 1 && isValidPair) { console.log(`Gate pair regenerated ${attempts - 1} times for lethality. Final pair: (${gate1Config.text}, ${gate2Config.text})`); }
         }
-
-
-        function spawnObstacle() { /* ... remains same ... */
+        function spawnObstacle() {
              const spawnY = -BASE_OBSTACLE_RADIUS * 2; const pathWidthAtSpawn = getPathWidthAtY(spawnY); const pathStartXAtSpawn = getPathStartXAtY(spawnY); const minXCenter = pathStartXAtSpawn + BASE_OBSTACLE_RADIUS; const maxXCenter = pathStartXAtSpawn + pathWidthAtSpawn - BASE_OBSTACLE_RADIUS; let centerX; if (minXCenter >= maxXCenter) { centerX = gameWidth / 2; } else { centerX = getRandomInt(minXCenter, maxXCenter); } let relativeX = 0.5; if (pathWidthAtSpawn > 0) { relativeX = (centerX - pathStartXAtSpawn) / pathWidthAtSpawn; } obstacles.push({ type: 'obstacle', relativeX: relativeX, y: spawnY, baseRadius: BASE_OBSTACLE_RADIUS, color: OBSTACLE_COLOR });
         }
-        function spawnParticles(x, y, color) { /* ... remains same ... */
+        function spawnParticles(x, y, color) {
              for (let i = 0; i < PARTICLE_COUNT; i++) { particles.push({ x: x, y: y, vx: getRandomFloat(-PARTICLE_SPEED_FACTOR, PARTICLE_SPEED_FACTOR), vy: getRandomFloat(-PARTICLE_SPEED_FACTOR * 1.5, -PARTICLE_SPEED_FACTOR * 0.5), size: getRandomFloat(PARTICLE_SIZE * 0.5, PARTICLE_SIZE * 1.5), color: color, life: PARTICLE_LIFE, opacity: 1.0 }); }
         }
         function updateScoreDisplay() { scoreElement.textContent = score.toFixed(2); }
-
-        function startGame() { /* ... remains same ... */
+        function startGame() {
             console.log("Starting game..."); score = 1; updateScoreDisplay(); gates = []; obstacles = []; particles = []; frameCount = 0; nextPairId = 0;
             currentBaseGateSpeed = baseGateSpeed; currentBaseObstacleSpeed = baseObstacleSpeed; currentGateSpawnInterval = baseGateSpawnInterval; currentObstacleSpawnInterval = baseObstacleSpawnInterval; currentObstaclePenaltyPercent = baseObstaclePenaltyPercent;
             gameRunning = true; startTime = performance.now(); elapsedTime = 0; timeElement.textContent = '0.0';
@@ -565,28 +518,57 @@
             if (animationFrameId) { cancelAnimationFrame(animationFrameId); }
             gameLoop();
         }
-        function showStartScreen() { /* ... remains same ... */
+        function showStartScreen() {
              startScreen.style.display = 'flex'; gameScreen.style.display = 'none'; hideMessage(); displayHighScores();
         }
-        function showGameScreen() { /* ... remains same ... */
+        function showGameScreen() {
              startScreen.style.display = 'none'; gameScreen.style.display = 'flex'; resizeCanvas();
         }
 
+
         // --- Drawing Functions ---
-        function drawPlayer() { /* ... remains same ... */ ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fillStyle = player.color; ctx.fill(); ctx.closePath(); ctx.strokeStyle = '#a0aec0'; ctx.lineWidth = 2; ctx.stroke(); ctx.fillStyle = 'white'; const fontSize = Math.min(PLAYER_FONT_SIZE, player.radius * 0.7); ctx.font = `bold ${fontSize}px 'Press Start 2P'`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(Math.round(score), player.x, player.y + 1); }
-        function drawSingleGate(gate) { /* ... remains same ... */ const scale = getScaleAtY(gate.y); const scaledHeight = gate.baseHeight * scale; if (scaledHeight < 1 || gate.y > gameHeight || gate.y + scaledHeight < 0) return; const currentPathWidth = getPathWidthAtY(gate.y); const currentGateWidth = currentPathWidth * GATE_WIDTH_FACTOR; const currentPathStartX = getPathStartXAtY(gate.y); const currentCenterX = currentPathStartX + currentPathWidth * gate.relativeX; const drawX = currentCenterX - currentGateWidth / 2; ctx.fillStyle = GATE_COLOR; ctx.fillRect(drawX, gate.y, currentGateWidth, scaledHeight); ctx.strokeStyle = GATE_BORDER_COLOR; ctx.lineWidth = Math.max(1, 2 * scale); ctx.strokeRect(drawX, gate.y, currentGateWidth, scaledHeight); ctx.fillStyle = 'white'; const scaledFontSize = Math.max(MIN_GATE_FONT_SIZE, scaledHeight * GATE_FONT_HEIGHT_FACTOR); ctx.font = `bold ${scaledFontSize}px 'Press Start 2P'`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(gate.text, currentCenterX, gate.y + scaledHeight * 0.55); }
-        function drawSingleObstacle(obstacle) { /* ... remains same ... */ const scale = getScaleAtY(obstacle.y); const scaledRadius = obstacle.baseRadius * scale; if (scaledRadius < 1 || obstacle.y + scaledRadius < 0 || obstacle.y - scaledRadius > gameHeight) return; const currentPathWidth = getPathWidthAtY(obstacle.y); const currentPathStartX = getPathStartXAtY(obstacle.y); const currentCenterX = currentPathStartX + currentPathWidth * obstacle.relativeX; ctx.beginPath(); ctx.arc(currentCenterX, obstacle.y, scaledRadius, 0, Math.PI * 2); ctx.fillStyle = OBSTACLE_COLOR; ctx.fill(); ctx.closePath(); ctx.beginPath(); ctx.arc(currentCenterX, obstacle.y, scaledRadius, 0, Math.PI * 2); ctx.strokeStyle = OBSTACLE_BORDER_COLOR; ctx.lineWidth = Math.max(1, 1.5 * scale); ctx.stroke(); ctx.closePath(); }
-        function drawPath() { /* ... remains same ... */ const pathBottomWidth = gameWidth * PATH_BOTTOM_WIDTH_FACTOR; const pathTopWidth = gameWidth * PATH_TOP_WIDTH_FACTOR; const pathBottomStart = (gameWidth - pathBottomWidth) / 2; const pathTopStart = (gameWidth - pathTopWidth) / 2; ctx.fillStyle = PATH_COLOR; ctx.beginPath(); ctx.moveTo(pathBottomStart, gameHeight); ctx.lineTo(pathTopStart, VANISHING_POINT_Y); ctx.lineTo(pathTopStart + pathTopWidth, VANISHING_POINT_Y); ctx.lineTo(pathBottomStart + pathBottomWidth, gameHeight); ctx.closePath(); ctx.fill(); ctx.strokeStyle = PATH_BORDER_COLOR; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(pathBottomStart, gameHeight); ctx.lineTo(pathTopStart, VANISHING_POINT_Y); ctx.moveTo(pathBottomStart + pathBottomWidth, gameHeight); ctx.lineTo(pathTopStart + pathTopWidth, VANISHING_POINT_Y); ctx.stroke(); }
-        function drawParticles() { /* ... remains same ... */ for (let i = 0; i < particles.length; i++) { const p = particles[i]; ctx.save(); ctx.globalAlpha = p.opacity; ctx.fillStyle = p.color; ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size); ctx.restore(); } }
+        function drawPlayer() { /* ... */ }
+        function drawSingleGate(gate) { /* ... */ }
+        function drawSingleObstacle(obstacle) { /* ... */ }
+        function drawPath() { /* ... */ }
+        function drawParticles() { /* ... */ }
+        // (Drawing functions remain the same as v.29)
+        function drawPlayer() { ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fillStyle = player.color; ctx.fill(); ctx.closePath(); ctx.strokeStyle = '#a0aec0'; ctx.lineWidth = 2; ctx.stroke(); ctx.fillStyle = 'white'; const fontSize = Math.min(PLAYER_FONT_SIZE, player.radius * 0.7); ctx.font = `bold ${fontSize}px 'Press Start 2P'`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(Math.round(score), player.x, player.y + 1); }
+        function drawSingleGate(gate) { const scale = getScaleAtY(gate.y); const scaledHeight = gate.baseHeight * scale; if (scaledHeight < 1 || gate.y > gameHeight || gate.y + scaledHeight < 0) return; const currentPathWidth = getPathWidthAtY(gate.y); const currentGateWidth = currentPathWidth * GATE_WIDTH_FACTOR; const currentPathStartX = getPathStartXAtY(gate.y); const currentCenterX = currentPathStartX + currentPathWidth * gate.relativeX; const drawX = currentCenterX - currentGateWidth / 2; ctx.fillStyle = GATE_COLOR; ctx.fillRect(drawX, gate.y, currentGateWidth, scaledHeight); ctx.strokeStyle = GATE_BORDER_COLOR; ctx.lineWidth = Math.max(1, 2 * scale); ctx.strokeRect(drawX, gate.y, currentGateWidth, scaledHeight); ctx.fillStyle = 'white'; const scaledFontSize = Math.max(MIN_GATE_FONT_SIZE, scaledHeight * GATE_FONT_HEIGHT_FACTOR); ctx.font = `bold ${scaledFontSize}px 'Press Start 2P'`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(gate.text, currentCenterX, gate.y + scaledHeight * 0.55); }
+        function drawSingleObstacle(obstacle) { const scale = getScaleAtY(obstacle.y); const scaledRadius = obstacle.baseRadius * scale; if (scaledRadius < 1 || obstacle.y + scaledRadius < 0 || obstacle.y - scaledRadius > gameHeight) return; const currentPathWidth = getPathWidthAtY(obstacle.y); const currentPathStartX = getPathStartXAtY(obstacle.y); const currentCenterX = currentPathStartX + currentPathWidth * obstacle.relativeX; ctx.beginPath(); ctx.arc(currentCenterX, obstacle.y, scaledRadius, 0, Math.PI * 2); ctx.fillStyle = OBSTACLE_COLOR; ctx.fill(); ctx.closePath(); ctx.beginPath(); ctx.arc(currentCenterX, obstacle.y, scaledRadius, 0, Math.PI * 2); ctx.strokeStyle = OBSTACLE_BORDER_COLOR; ctx.lineWidth = Math.max(1, 1.5 * scale); ctx.stroke(); ctx.closePath(); }
+        function drawPath() { const pathBottomWidth = gameWidth * PATH_BOTTOM_WIDTH_FACTOR; const pathTopWidth = gameWidth * PATH_TOP_WIDTH_FACTOR; const pathBottomStart = (gameWidth - pathBottomWidth) / 2; const pathTopStart = (gameWidth - pathTopWidth) / 2; ctx.fillStyle = PATH_COLOR; ctx.beginPath(); ctx.moveTo(pathBottomStart, gameHeight); ctx.lineTo(pathTopStart, VANISHING_POINT_Y); ctx.lineTo(pathTopStart + pathTopWidth, VANISHING_POINT_Y); ctx.lineTo(pathBottomStart + pathBottomWidth, gameHeight); ctx.closePath(); ctx.fill(); ctx.strokeStyle = PATH_BORDER_COLOR; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(pathBottomStart, gameHeight); ctx.lineTo(pathTopStart, VANISHING_POINT_Y); ctx.moveTo(pathBottomStart + pathBottomWidth, gameHeight); ctx.lineTo(pathTopStart + pathTopWidth, VANISHING_POINT_Y); ctx.stroke(); }
+        function drawParticles() { for (let i = 0; i < particles.length; i++) { const p = particles[i]; ctx.save(); ctx.globalAlpha = p.opacity; ctx.fillStyle = p.color; ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size); ctx.restore(); } }
+
 
         // --- Game Logic ---
-        function updatePlayerPosition() { /* ... remains same ... */ const dx = playerTargetX - player.x; player.x += dx * 0.15; const pathWidthAtPlayerY = getPathWidthAtY(player.y); const pathStartXAtPlayerY = getPathStartXAtY(player.y); const minX = pathStartXAtPlayerY + player.radius; const maxX = pathStartXAtPlayerY + pathWidthAtPlayerY - player.radius; player.x = Math.max(minX, Math.min(maxX, player.x)); }
-        function updateGates() { /* ... remains same ... */ let hitPairId = -1; for (let i = gates.length - 1; i >= 0; i--) { const gate = gates[i]; const scale = getScaleAtY(gate.y); const adjustedSpeed = Math.max(MIN_PIXEL_SPEED, currentBaseGateSpeed * (scale ** 1.5)); gate.y += adjustedSpeed; const currentPathWidth = getPathWidthAtY(gate.y); const currentGateWidth = currentPathWidth * GATE_WIDTH_FACTOR; const scaledHeight = gate.baseHeight * scale; const currentPathStartX = getPathStartXAtY(gate.y); const currentGateCenterX = currentPathStartX + currentPathWidth * gate.relativeX; const gateRectX = currentGateCenterX - currentGateWidth / 2; const gateRectY = gate.y; const playerLeft = player.x - player.radius; const playerRight = player.x + player.radius; const playerTop = player.y - player.radius; const playerBottom = player.y + player.radius; const gateLeft = gateRectX; const gateRight = gateRectX + currentGateWidth; const gateTop = gateRectY; const gateBottom = gateRectY + scaledHeight; if (playerRight > gateLeft && playerLeft < gateRight && playerBottom > gateTop && playerTop < gateBottom) { score = applyOperation(score, gate.operation, gate.value); updateScoreDisplay(); spawnParticles(player.x, player.y, gate.color); hitPairId = gate.pairId; gates.splice(i, 1); if (score <= 0) { gameOver("Score reached zero!"); return; } } else if (gate.y > gameHeight) { gates.splice(i, 1); } } if (hitPairId !== -1) { for (let i = gates.length - 1; i >= 0; i--) { if (gates[i].pairId === hitPairId) { gates.splice(i, 1); } } } }
-        function updateObstacles() { /* ... remains same ... */ for (let i = obstacles.length - 1; i >= 0; i--) { const obstacle = obstacles[i]; const scale = getScaleAtY(obstacle.y); const adjustedSpeed = Math.max(MIN_PIXEL_SPEED, currentBaseObstacleSpeed * (scale ** 1.5)); obstacle.y += adjustedSpeed; const scaledRadius = obstacle.baseRadius * scale; const currentPathWidth = getPathWidthAtY(obstacle.y); const currentPathStartX = getPathStartXAtY(obstacle.y); const obstacleCenterX = currentPathStartX + currentPathWidth * obstacle.relativeX; const obstacleCenterY = obstacle.y; const dx = player.x - obstacleCenterX; const dy = player.y - obstacleCenterY; const distanceSquared = dx * dx + dy * dy; const radiiSumSquared = (player.radius + scaledRadius) * (player.radius + scaledRadius); if (distanceSquared < radiiSumSquared) { const penalty = Math.max(1, Math.ceil(Math.max(1, score) * currentObstaclePenaltyPercent)); score = Math.max(0, score - penalty); updateScoreDisplay(); spawnParticles(player.x, player.y, obstacle.color); obstacles.splice(i, 1); if (score <= 0) { gameOver("Hit an obstacle!"); return; } } else if (obstacle.y - scaledRadius > gameHeight) { obstacles.splice(i, 1); } } }
-        function updateParticles() { /* ... remains same ... */ for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += PARTICLE_GRAVITY; p.life--; p.opacity = Math.max(0, p.life / PARTICLE_LIFE); if (p.life <= 0 || p.y > gameHeight || p.opacity <= 0) { particles.splice(i, 1); } } }
-        function increaseDifficulty() { /* ... remains same ... */ currentBaseGateSpeed = Math.min(MAX_GATE_SPEED, currentBaseGateSpeed + speedIncreaseFactor); currentBaseObstacleSpeed = Math.min(MAX_OBSTACLE_SPEED, currentBaseObstacleSpeed + speedIncreaseFactor); currentGateSpawnInterval = Math.max(MIN_GATE_INTERVAL, currentGateSpawnInterval - intervalDecreaseFactor); currentObstacleSpawnInterval = Math.max(MIN_OBSTACLE_INTERVAL, currentObstacleSpawnInterval - intervalDecreaseFactor); currentObstaclePenaltyPercent = Math.min(MAX_OBSTACLE_PENALTY_PERCENT, currentObstaclePenaltyPercent + obstaclePenaltyIncreaseFactor); }
+        // --- Modified: Instant Player Movement ---
+        function updatePlayerPosition() {
+            // Directly set player x to the target x
+            player.x = playerTargetX;
 
-        function handleGameEnd(win = false) { /* ... remains same ... */
+            // Clamp player position to stay within the path at their current Y
+            const pathWidthAtPlayerY = getPathWidthAtY(player.y);
+            const pathStartXAtPlayerY = getPathStartXAtY(player.y);
+            const minX = pathStartXAtPlayerY + player.radius; // Left boundary
+            const maxX = pathStartXAtPlayerY + pathWidthAtPlayerY - player.radius; // Right boundary
+
+            player.x = Math.max(minX, Math.min(maxX, player.x)); // Apply clamping
+        }
+        // --- End Modification ---
+
+        function updateGates() { /* ... */ }
+        function updateObstacles() { /* ... */ }
+        function updateParticles() { /* ... */ }
+        function increaseDifficulty() { /* ... */ }
+        function handleGameEnd(win = false) { /* ... */ }
+        function gameOver(reason = "Score reached zero!") { /* ... */ }
+        function gameWin() { /* ... */ }
+        // (Logic functions remain the same as v.29)
+        function updateGates() { let hitPairId = -1; for (let i = gates.length - 1; i >= 0; i--) { const gate = gates[i]; const scale = getScaleAtY(gate.y); const adjustedSpeed = Math.max(MIN_PIXEL_SPEED, currentBaseGateSpeed * (scale ** 1.5)); gate.y += adjustedSpeed; const currentPathWidth = getPathWidthAtY(gate.y); const currentGateWidth = currentPathWidth * GATE_WIDTH_FACTOR; const scaledHeight = gate.baseHeight * scale; const currentPathStartX = getPathStartXAtY(gate.y); const currentGateCenterX = currentPathStartX + currentPathWidth * gate.relativeX; const gateRectX = currentGateCenterX - currentGateWidth / 2; const gateRectY = gate.y; const playerLeft = player.x - player.radius; const playerRight = player.x + player.radius; const playerTop = player.y - player.radius; const playerBottom = player.y + player.radius; const gateLeft = gateRectX; const gateRight = gateRectX + currentGateWidth; const gateTop = gateRectY; const gateBottom = gateRectY + scaledHeight; if (playerRight > gateLeft && playerLeft < gateRight && playerBottom > gateTop && playerTop < gateBottom) { score = applyOperation(score, gate.operation, gate.value); updateScoreDisplay(); spawnParticles(player.x, player.y, gate.color); hitPairId = gate.pairId; gates.splice(i, 1); if (score <= 0) { gameOver("Score reached zero!"); return; } } else if (gate.y > gameHeight) { gates.splice(i, 1); } } if (hitPairId !== -1) { for (let i = gates.length - 1; i >= 0; i--) { if (gates[i].pairId === hitPairId) { gates.splice(i, 1); } } } }
+        function updateObstacles() { for (let i = obstacles.length - 1; i >= 0; i--) { const obstacle = obstacles[i]; const scale = getScaleAtY(obstacle.y); const adjustedSpeed = Math.max(MIN_PIXEL_SPEED, currentBaseObstacleSpeed * (scale ** 1.5)); obstacle.y += adjustedSpeed; const scaledRadius = obstacle.baseRadius * scale; const currentPathWidth = getPathWidthAtY(obstacle.y); const currentPathStartX = getPathStartXAtY(obstacle.y); const obstacleCenterX = currentPathStartX + currentPathWidth * obstacle.relativeX; const obstacleCenterY = obstacle.y; const dx = player.x - obstacleCenterX; const dy = player.y - obstacleCenterY; const distanceSquared = dx * dx + dy * dy; const radiiSumSquared = (player.radius + scaledRadius) * (player.radius + scaledRadius); if (distanceSquared < radiiSumSquared) { const penalty = Math.max(1, Math.ceil(Math.max(1, score) * currentObstaclePenaltyPercent)); score = Math.max(0, score - penalty); updateScoreDisplay(); spawnParticles(player.x, player.y, obstacle.color); obstacles.splice(i, 1); if (score <= 0) { gameOver("Hit an obstacle!"); return; } } else if (obstacle.y - scaledRadius > gameHeight) { obstacles.splice(i, 1); } } }
+        function updateParticles() { for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += PARTICLE_GRAVITY; p.life--; p.opacity = Math.max(0, p.life / PARTICLE_LIFE); if (p.life <= 0 || p.y > gameHeight || p.opacity <= 0) { particles.splice(i, 1); } } }
+        function increaseDifficulty() { currentBaseGateSpeed = Math.min(MAX_GATE_SPEED, currentBaseGateSpeed + speedIncreaseFactor); currentBaseObstacleSpeed = Math.min(MAX_OBSTACLE_SPEED, currentBaseObstacleSpeed + speedIncreaseFactor); currentGateSpawnInterval = Math.max(MIN_GATE_INTERVAL, currentGateSpawnInterval - intervalDecreaseFactor); currentObstacleSpawnInterval = Math.max(MIN_OBSTACLE_INTERVAL, currentObstacleSpawnInterval - intervalDecreaseFactor); currentObstaclePenaltyPercent = Math.min(MAX_OBSTACLE_PENALTY_PERCENT, currentObstaclePenaltyPercent + obstaclePenaltyIncreaseFactor); }
+        function handleGameEnd(win = false) {
             if (!gameRunning) return; gameRunning = false; if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; }
             elapsedTime = performance.now() - startTime; console.log(win ? "Player Wins!" : "Game Over!"); stopAudioLoop();
             const timeBonus = Math.floor(elapsedTime / 1000) * TIME_BONUS_MULTIPLIER; const finalScoreValue = Math.max(0, score) + timeBonus;
@@ -599,7 +581,9 @@
         function gameWin() { handleGameEnd(true); }
 
         // --- Main Game Loop ---
-        function gameLoop(timestamp) { /* ... remains same ... */
+        function gameLoop(timestamp) { /* ... */ }
+        // (Game loop remains the same as v.29)
+        function gameLoop(timestamp) {
             if (!gameRunning) return; elapsedTime = performance.now() - startTime; if (elapsedTime / 1000 >= WIN_TIME_SECONDS) { gameWin(); return; } timeElement.textContent = (elapsedTime / 1000).toFixed(1);
             ctx.clearRect(0, 0, gameWidth, gameHeight); drawPath();
             let renderables = [ ...gates.map(g => { const scale = getScaleAtY(g.y); const scaledHeight = g.baseHeight * scale; return { ...g, type: 'gate', sortY: g.y + scaledHeight / 2 }; }), ...obstacles.map(o => ({ ...o, type: 'obstacle', sortY: o.y })) ];
@@ -612,24 +596,36 @@
             animationFrameId = requestAnimationFrame(gameLoop);
         }
 
+
         // --- Input Handling ---
-        function handleMove(clientX) { /* ... remains same ... */
+        function handleMove(clientX) { /* ... */ }
+        // (Input handling remains the same as v.29)
+        function handleMove(clientX) {
             if (gameRunning && !audioInitialized) { (async () => { await startAudio(); })(); } if (!gameRunning) return; const rect = canvas.getBoundingClientRect(); if (!rect || rect.width === 0) return; const scaleX = canvas.width / rect.width; const canvasX = (clientX - rect.left) * scaleX; playerTargetX = canvasX;
         }
 
+
         // --- Event Listeners ---
-        canvas.addEventListener('pointerdown', (e) => { /* ... remains same ... */
+        canvas.addEventListener('pointerdown', (e) => { /* ... */ });
+        canvas.addEventListener('pointerup', (e) => { /* ... */ });
+        canvas.addEventListener('pointerleave', (e) => { /* ... */ });
+        startGameButton.addEventListener('click', () => { /* ... */ });
+        backToMenuButton.addEventListener('click', showStartScreen);
+        muteButton.addEventListener('click', toggleMute);
+        soundSelect.addEventListener('change', changeSound);
+        // (Event listeners remain the same as v.29)
+        canvas.addEventListener('pointerdown', (e) => {
             if (gameRunning && !audioInitialized) { (async () => { await startAudio(); })(); } if (e.isPrimary) { handleMove(e.clientX); canvas.onpointermove = (moveEvent) => { if (moveEvent.isPrimary) { handleMove(moveEvent.clientX); } }; canvas.setPointerCapture(e.pointerId); }
         });
-        canvas.addEventListener('pointerup', (e) => { /* ... remains same ... */ if (e.isPrimary) { canvas.onpointermove = null; canvas.releasePointerCapture(e.pointerId); } });
-        canvas.addEventListener('pointerleave', (e) => { /* ... remains same ... */ if (e.isPrimary && canvas.onpointermove) { canvas.onpointermove = null; canvas.releasePointerCapture(e.pointerId); } });
-        startGameButton.addEventListener('click', () => { /* ... remains same ... */ currentPlayerName = playerNameInput.value.trim() || "AAA"; console.log(`Player Name Set: ${currentPlayerName}`); showGameScreen(); startGame(); });
-        backToMenuButton.addEventListener('click', showStartScreen); /* ... remains same ... */
-        muteButton.addEventListener('click', toggleMute); /* ... remains same ... */
-        soundSelect.addEventListener('change', changeSound); /* ... remains same ... */
+        canvas.addEventListener('pointerup', (e) => { if (e.isPrimary) { canvas.onpointermove = null; canvas.releasePointerCapture(e.pointerId); } });
+        canvas.addEventListener('pointerleave', (e) => { if (e.isPrimary && canvas.onpointermove) { canvas.onpointermove = null; canvas.releasePointerCapture(e.pointerId); } });
+        startGameButton.addEventListener('click', () => { currentPlayerName = playerNameInput.value.trim() || "AAA"; console.log(`Player Name Set: ${currentPlayerName}`); showGameScreen(); startGame(); });
+
 
         // --- Initialization ---
-        function init() { /* ... remains same ... */
+        function init() { /* ... */ }
+        // (Init remains the same as v.29)
+        function init() {
             console.log("Initializing Application..."); window.addEventListener('resize', handleWindowResize); setupAudio(); loadHighScores(); showStartScreen();
         }
         init();
@@ -638,5 +634,3 @@
 
 </body>
 </html>
-
-
