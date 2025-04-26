@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perspective Runner Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        /* --- Base & Body --- */
+        :root {
+            --bg-dark: #1a202c;
+            --bg-medium: #2d3748;
+            --bg-light: #4a5568;
+            --border-color: #718096;
+            --text-light: #e2e8f0;
+            --text-medium: #a0aec0;
+            --text-dark: #1a202c;
+            --accent-blue: #63b3ed;
+            --accent-blue-dark: #3182ce;
+            --accent-orange: #f6ad55;
+            --accent-red: #f56565;
+            --accent-red-dark: #c53030;
+            --shadow-color: rgba(0, 0, 0, 0.5);
+            --highlight-color: rgba(255, 255, 255, 0.1);
+            --gold-color: #ffd700;
+        }
+        html { box-sizing: border-box; }
+        *, *:before, *:after { box-sizing: inherit; }
+        body {
+            font-family: 'Press Start 2P', cursive;
+            touch-action: manipulation;
+            overflow-x: hidden; /* Prevent horizontal scroll */
+            overflow-y: auto; /* Allow vertical scroll if needed */
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            padding: 20px; /* Base padding */
+            position: relative;
+        }
+
+        /* --- Screen Containers --- */
+        .screen {
+            width: 100%;
+            max-width: 650px; /* Slightly wider max-width for screens */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem; /* Space between elements */
+        }
+        #startScreen { display: flex; /* Initially visible */ }
+        #gameScreen { display: none; /* Initially hidden */ }
+
+        /* --- Canvas --- */
+        #gameCanvasContainer { /* Container for canvas */
+             width: 100%;
+             max-width: 600px; /* Max width for canvas itself */
+             aspect-ratio: 2 / 3;
+             margin-bottom: 1rem; /* Space below canvas */
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%; /* Fill container */
+            border-radius: 12px;
+            box-shadow: 0 0 15px var(--shadow-color), inset 0 0 10px rgba(0,0,0,0.3);
+            /* background-color for canvas is set via ctx.fillStyle in drawPath if needed, or keep this for fallback */
+            background-color: var(--bg-medium);
+            border: 4px outset var(--bg-light);
+        }
+
+        /* --- Message Overlay & Box --- */
+        #messageOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.85); display: flex; justify-content: center; align-items: center;
+            text-align: center; z-index: 100; padding: 1rem; opacity: 0; visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+         #messageOverlay.visible { opacity: 1; visibility: visible; }
+        #messageBox {
+            background: linear-gradient(145deg, var(--bg-medium), var(--bg-light)); color: var(--text-light);
+            padding: 2.5rem 3.5rem; border-radius: 15px;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5), inset 0 2px 4px var(--highlight-color);
+            border: 3px outset var(--border-color); max-width: 90%; transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+        #messageOverlay.visible #messageBox { transform: scale(1); }
+
+        /* --- Buttons --- */
+        button {
+            padding: 0.8rem 1.8rem; margin-top: 1rem; /* Consistent margin */ border: 2px outset var(--border-color); border-radius: 8px;
+            background: linear-gradient(145deg, var(--accent-blue), var(--accent-blue-dark)); color: white;
+            font-family: 'Press Start 2P', cursive; font-size: 1rem; text-shadow: 1px 1px 2px var(--shadow-color);
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3), inset 0 -3px 5px rgba(0, 0, 0, 0.2); cursor: pointer;
+            transition: all 0.15s ease; text-transform: uppercase; will-change: transform, box-shadow;
+        }
+        button:hover {
+            background: linear-gradient(145deg, #8ecbf4, #4c8ff8); box-shadow: 0 7px 12px rgba(0, 0, 0, 0.35), inset 0 -3px 5px rgba(0, 0, 0, 0.25);
+            transform: translateY(-3px);
+        }
+        button:active { transform: translateY(2px); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), inset 0 -1px 3px rgba(0, 0, 0, 0.2); }
+        /* Specific button adjustments */
+        #startGameButton { font-size: 1.1rem; padding: 1rem 2rem; }
+        #backToMenuButton { /* Renamed from restartButton */ font-size: 0.9rem; } /* Corrected ID */
+
+        /* --- Header (Game Screen) --- */
+        .game-header {
+            text-align: center; margin-bottom: 1rem; /* Less margin as canvas has margin */ padding: 1.2rem 1rem;
+            background: linear-gradient(180deg, var(--bg-light), var(--bg-medium)); border-radius: 12px;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3), inset 0 1px 2px var(--highlight-color);
+            border: 3px outset var(--border-color); width: 100%; max-width: 600px;
+        }
+        .game-header h1 { font-size: 1.6rem; color: var(--text-light); margin-bottom: 0.8rem; text-shadow: 3px 3px 0px rgba(0, 0, 0, 0.4); }
+        .stats-container { display: flex; justify-content: space-around; align-items: baseline; flex-wrap: wrap; gap: 1rem; }
+        .stats-container p { font-size: 0.9rem; color: var(--text-medium); margin: 0; text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.3); }
+        .stats-container span { display: inline-block; margin-left: 0.5em; padding: 2px 5px; border-radius: 4px; background-color: rgba(0,0,0,0.2); }
+        .stats-container #score { color: var(--accent-blue); font-weight: bold; }
+        .stats-container #time { color: var(--accent-orange); font-weight: bold; }
+
+        /* --- Message Box Text --- */
+        #messageText { font-size: 1.3rem; font-weight: bold; margin-bottom: 1.5rem; color: #fff; text-shadow: 2px 2px 0px var(--shadow-color); }
+        #scoreBreakdownText { font-size: 0.85rem; color: var(--text-medium); margin-bottom: 1rem; line-height: 1.4; }
+        #timerDisplay { font-size: 0.9rem; color: var(--text-medium); }
+
+         /* --- Audio Controls --- */
+         #audioControls {
+            position: absolute; top: 15px; right: 15px; display: flex; align-items: center; gap: 12px; z-index: 50;
+         }
+        #muteButton { padding: 0.6rem 0.8rem; margin-top: 0; font-size: 0.75rem; background: var(--bg-light); color: var(--text-light); border: 2px outset var(--border-color); box-shadow: 0 3px 5px rgba(0, 0, 0, 0.25), inset 0 -2px 3px rgba(0, 0, 0, 0.15); min-width: 70px; text-align: center; }
+        #muteButton:hover { background: var(--bg-medium); transform: none; }
+        #muteButton:active { transform: translateY(1px); border-style: inset; }
+        #soundSelect { font-family: 'Press Start 2P', cursive; font-size: 0.75rem; padding: 0.5rem; border-radius: 8px; border: 2px outset var(--border-color); background-color: var(--bg-light); color: var(--text-light); cursor: pointer; box-shadow: 0 3px 5px rgba(0, 0, 0, 0.25), inset 0 -2px 3px rgba(0, 0, 0, 0.15); appearance: none; -webkit-appearance: none; -moz-appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23e2e8f0%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 0.65em auto; padding-right: 2rem; transition: background-color 0.2s ease; }
+        #soundSelect:hover { background-color: var(--bg-medium); }
+        #soundSelect:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-blue-dark), 0 3px 5px rgba(0, 0, 0, 0.25), inset 0 -2px 3px rgba(0, 0, 0, 0.15); }
+        #soundSelect option { background-color: var(--bg-medium); color: var(--text-light); }
+
+        /* --- Start Screen Specific Styles --- */
+        #startScreen h1 { font-size: 2rem; color: var(--text-light); text-shadow: 4px 4px 0px rgba(0,0,0,0.4); margin-bottom: 0.5rem; }
+        .start-section { width: 100%; padding: 1.5rem; background-color: var(--bg-medium); border: 3px outset var(--border-color); border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.3); display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+        .start-section h2 { font-size: 1.2rem; color: var(--accent-orange); margin-bottom: 0.5rem; text-shadow: 2px 2px 0px rgba(0,0,0,0.3); }
+        #playerNameInput { font-family: 'Press Start 2P', cursive; font-size: 1rem; padding: 0.6rem 1rem; border: 2px inset var(--border-color); border-radius: 8px; background-color: var(--bg-dark); color: var(--text-light); text-align: center; width: 80%; max-width: 300px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.4); }
+        #playerNameInput::placeholder { color: var(--text-medium); opacity: 0.7; }
+        #playerNameInput:focus { outline: none; box-shadow: inset 0 2px 4px rgba(0,0,0,0.4), 0 0 0 3px var(--accent-blue-dark); }
+
+        /* --- Hall of Fame List --- */
+        #hallOfFameList { list-style: none; padding: 0; margin: 0; width: 100%; max-height: 300px; overflow-y: auto; border: 2px inset var(--border-color); background-color: rgba(0,0,0,0.2); border-radius: 8px; padding: 0.5rem; }
+        #hallOfFameList li { display: flex; justify-content: space-between; padding: 0.5rem 0.8rem; font-size: 0.85rem; border-bottom: 1px dashed var(--bg-light); color: var(--text-medium); }
+        #hallOfFameList li:last-child { border-bottom: none; }
+        #hallOfFameList li span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70%; margin-right: 1rem; }
+        #hallOfFameList li span:last-child { font-weight: bold; color: var(--accent-orange); }
+        #hallOfFameList li:nth-child(1) { color: var(--gold-color); font-weight: bold; }
+        #hallOfFameList li:nth-child(2) { color: #c0c0c0; }
+        #hallOfFameList li:nth-child(3) { color: #cd7f32; }
+
+         /* --- Responsive Adjustments --- */
+         @media (max-width: 640px) {
+            body { padding-top: 70px; }
+             #audioControls { top: 10px; right: 5px; gap: 5px; }
+             #muteButton, #soundSelect { font-size: 0.7rem; padding: 0.4rem 0.6rem; min-width: 60px; }
+             #soundSelect { padding-right: 1.5rem; }
+             .game-header h1 { font-size: 1.3rem; }
+             .stats-container p { font-size: 0.8rem; }
+             #messageBox { padding: 1.5rem 2rem; }
+             #messageText { font-size: 1.1rem; }
+             button { font-size: 0.9rem; padding: 0.7rem 1.5rem;}
+             #startScreen h1 { font-size: 1.5rem; }
+             .start-section h2 { font-size: 1rem; }
+             #playerNameInput { font-size: 0.9rem; }
+             #hallOfFameList li { font-size: 0.8rem; padding: 0.4rem 0.6rem; }
+             #startGameButton { font-size: 1rem; padding: 0.8rem 1.8rem; }
+         }
+         @media (max-width: 400px) {
+             .game-header h1 { font-size: 1.1rem; }
+             .stats-container { justify-content: center; }
+             #startScreen h1 { font-size: 1.3rem; }
+         }
+
+    </style>
+</head>
+<body>
+    <div id="audioControls">
+        <select id="soundSelect">
+            <option value="0">Sound 1</option>
+            <option value="1">Sound 2</option>
+            <option value="2">Sound 3</option>
+        </select>
+        <button id="muteButton">Mute</button>
+    </div>
+
+    <div id="startScreen" class="screen">
+        <h1>Perspective Runner</h1>
+        <div class="start-section">
+            <h2>Enter Your Name</h2>
+            <input type="text" id="playerNameInput" placeholder="AAA" maxlength="10">
+            <button id="startGameButton">Start Game</button>
+        </div>
+        <div class="start-section">
+            <h2>Hall of Fame</h2>
+            <ol id="hallOfFameList">
+                <li>Loading...</li>
+            </ol>
+        </div>
+    </div>
+
+    <div id="gameScreen" class="screen">
+        <div class="game-header">
+            <h1 id="gameTitle">Perspective Runner</h1>
+            <div class="stats-container">
+                 <p>Score: <span id="score">1.00</span></p>
+                 <p id="timerDisplay">Time: <span id="time">0.0</span>s</p>
+            </div>
+        </div>
+        <div id="gameCanvasContainer">
+             <canvas id="gameCanvas"></canvas>
+        </div>
+    </div>
+
+    <div id="messageOverlay">
+        <div id="messageBox">
+            <p id="messageText"></p>
+            <p id="scoreBreakdownText"></p>
+            <button id="backToMenuButton">Back to Menu</button>
+        </div>
+    </div>
+
+    <script>
+        // Perspective Runner (v.29 - High Score Gate Rule)
+
+        // --- DOM Elements ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const timeElement = document.getElementById('time');
+        const messageOverlay = document.getElementById('messageOverlay');
+        const messageText = document.getElementById('messageText');
+        const scoreBreakdownText = document.getElementById('scoreBreakdownText');
+        const muteButton = document.getElementById('muteButton');
+        const soundSelect = document.getElementById('soundSelect');
+        const startScreen = document.getElementById('startScreen');
+        const gameScreen = document.getElementById('gameScreen');
+        const playerNameInput = document.getElementById('playerNameInput');
+        const startGameButton = document.getElementById('startGameButton');
+        const hallOfFameList = document.getElementById('hallOfFameList');
+        const backToMenuButton = document.getElementById('backToMenuButton');
+
+        // --- Game State Variables ---
+        let gameWidth, gameHeight;
+        let score = 1;
+        let player = { x: 0, y: 0, radius: 20, speed: 5, color: '#63b3ed' };
+        let gates = [];
+        let obstacles = [];
+        let particles = [];
+        let baseGateSpeed = 3.5;
+        let baseObstacleSpeed = 4.0;
+        let baseGateSpawnInterval = 160;
+        let baseObstacleSpawnInterval = 55;
+        let currentBaseGateSpeed;
+        let currentBaseObstacleSpeed;
+        let currentGateSpawnInterval;
+        let currentObstacleSpawnInterval;
+        let frameCount = 0;
+        let difficultyIncreaseInterval = 300;
+        let speedIncreaseFactor = 0.1;
+        let intervalDecreaseFactor = 2;
+        const MAX_GATE_SPEED = 7;
+        const MAX_OBSTACLE_SPEED = 8;
+        const MIN_GATE_INTERVAL = 70;
+        const MIN_OBSTACLE_INTERVAL = 25;
+        let baseObstaclePenaltyPercent = 0.10;
+        let currentObstaclePenaltyPercent;
+        let obstaclePenaltyIncreaseFactor = 0.005;
+        const MAX_OBSTACLE_PENALTY_PERCENT = 0.50;
+        let gameRunning = false;
+        let touchStartX = null;
+        let playerTargetX = 0;
+        let nextPairId = 0;
+        let startTime = 0;
+        let elapsedTime = 0;
+        let animationFrameId = null;
+
+        // --- Hall of Fame State ---
+        let highScores = [];
+        const MAX_HIGH_SCORES = 20;
+        let currentPlayerName = "AAA";
+
+        // --- Game Configuration Constants ---
+        const BASE_GATE_HEIGHT = 45;
+        const GATE_WIDTH_FACTOR = 0.48;
+        const BASE_OBSTACLE_RADIUS = 10;
+        const OBSTACLE_COLOR = '#f56565';
+        const OBSTACLE_BORDER_COLOR = '#c53030';
+        const GATE_COLOR = '#63b3ed';
+        const GATE_BORDER_COLOR = '#3182ce';
+        const MIN_SCALE = 0.3;
+        const PLAYER_FONT_SIZE = 14;
+        const GATE_FONT_HEIGHT_FACTOR = 0.5;
+        const MIN_GATE_FONT_SIZE = 8;
+        const PATH_COLOR = '#4a5568';
+        const PATH_BORDER_COLOR = '#718096';
+        const PATH_BOTTOM_WIDTH_FACTOR = 0.8;
+        const PATH_TOP_WIDTH_FACTOR = 0.3;
+        const VANISHING_POINT_Y = 0;
+        const TIME_BONUS_MULTIPLIER = 1;
+        const NEGATIVE_PAIR_THRESHOLD = 1000;
+        const WIN_TIME_SECONDS = 120;
+        const MIN_PIXEL_SPEED = 0.5;
+        const PARTICLE_COUNT = 15;
+        const PARTICLE_LIFE = 30;
+        const PARTICLE_SIZE = 3;
+        const PARTICLE_SPEED_FACTOR = 3;
+        const PARTICLE_GRAVITY = 0.1;
+        const MAX_SPAWN_ATTEMPTS = 10;
+
+        // --- Audio State ---
+        let audioInitialized = false;
+        let isMuted = false;
+        let backgroundLoops = [];
+        let currentLoopIndex = 0;
+        let synth = null;
+
+        // --- Initialize Audio Components ---
+        function setupAudio() { /* ... remains same ... */
+             if (typeof Tone === 'undefined') { console.warn("Tone.js not loaded. Audio disabled."); return; }
+            try {
+                synth = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.02, decay: 0.1, sustain: 0.2, release: 0.5 }, volume: -18 }).toDestination();
+                const melodies = [
+                    [ { time: '0:0', note: 'C3', duration: '8n' }, { time: '0:1', note: 'E3', duration: '8n' }, { time: '0:2', note: 'G3', duration: '8n' }, { time: '0:3', note: 'E3', duration: '8n' }, ],
+                    [ { time: '0:0:0', note: 'G3', duration: '16n' }, { time: '0:0:2', note: 'B3', duration: '16n' }, { time: '0:1:0', note: 'D4', duration: '16n' }, { time: '0:1:2', note: 'B3', duration: '16n' }, { time: '0:2:0', note: 'G3', duration: '16n' }, { time: '0:2:2', note: 'B3', duration: '16n' }, { time: '0:3:0', note: 'D4', duration: '16n' }, { time: '0:3:2', note: 'B3', duration: '16n' }, ],
+                    [ { time: '0:0', note: 'C2', duration: '4n' }, { time: '0:2', note: 'G2', duration: '4n' }, { time: '1:0', note: 'A2', duration: '4n' }, { time: '1:2', note: 'F2', duration: '4n' }, ]
+                ];
+                melodies.forEach(melody => {
+                    const loop = new Tone.Part((time, value) => { if(synth) { synth.triggerAttackRelease(value.note, value.duration, time); } }, melody);
+                    loop.loop = true; loop.loopEnd = melody === melodies[1] ? '1m' : '2m'; loop.humanize = true;
+                    backgroundLoops.push(loop);
+                });
+                console.log("Audio components initialized with", backgroundLoops.length, "loops.");
+            } catch (e) { console.error("Error setting up audio components:", e); synth = null; backgroundLoops = []; }
+        }
+
+        // --- Start Audio Context and the *Selected* Loop ---
+        async function startAudio() { /* ... remains same ... */
+            if (audioInitialized || !Tone || backgroundLoops.length === 0 || !synth) return;
+            if (Tone.context.state === 'running' && backgroundLoops[currentLoopIndex]?.state === 'started') return;
+            try {
+                if (Tone.context.state !== 'running') { await Tone.start(); console.log("Tone.js Audio Context started."); }
+                if (Tone.Transport.state !== 'started') { Tone.Transport.start(); console.log("Tone.js Transport started."); }
+                const currentLoop = backgroundLoops[currentLoopIndex];
+                if (currentLoop && currentLoop.state !== 'started') { currentLoop.start(0); console.log(`Background loop ${currentLoopIndex + 1} started.`); }
+                audioInitialized = true; console.log("Audio context and selected loop engaged.");
+            } catch (e) { console.error("Error starting audio:", e); audioInitialized = false; }
+        }
+
+        // --- Stop the *Currently Active* Loop ---
+        function stopAudioLoop() { /* ... remains same ... */
+            if (!audioInitialized || backgroundLoops.length === 0) return;
+            const currentLoop = backgroundLoops[currentLoopIndex];
+            if (currentLoop && currentLoop.state === 'started') { currentLoop.stop(0); console.log(`Background loop ${currentLoopIndex + 1} stopped.`); }
+            else if (currentLoop) { /* console.log(`Background loop ${currentLoopIndex + 1} already stopped or not initialized.`); */ }
+        }
+
+        // --- Change Selected Sound ---
+        function changeSound() { /* ... remains same ... */
+            const newIndex = parseInt(soundSelect.value, 10);
+            if (isNaN(newIndex) || newIndex < 0 || newIndex >= backgroundLoops.length || newIndex === currentLoopIndex) return;
+            console.log(`Changing sound from ${currentLoopIndex + 1} to ${newIndex + 1}`);
+            if (audioInitialized && gameRunning) {
+                stopAudioLoop(); // Stop the old one
+                currentLoopIndex = newIndex;
+                if (!isMuted) {
+                    const newLoop = backgroundLoops[currentLoopIndex];
+                    if (newLoop && newLoop.state !== 'started') {
+                        if (Tone && Tone.Transport.state !== 'started') { Tone.Transport.start(); }
+                        newLoop.start(0); console.log(`Background loop ${currentLoopIndex + 1} started after change.`);
+                    }
+                }
+            } else { currentLoopIndex = newIndex; }
+        }
+
+        // --- Toggle Mute ---
+        function toggleMute() { /* ... remains same ... */
+            isMuted = !isMuted;
+            if (Tone && Tone.Destination) {
+                 Tone.Destination.mute = isMuted; muteButton.textContent = isMuted ? 'Unmute' : 'Mute'; console.log("Audio muted:", isMuted);
+                 if (!isMuted && audioInitialized && gameRunning) {
+                     const currentLoop = backgroundLoops[currentLoopIndex];
+                     if (currentLoop && currentLoop.state !== 'started') {
+                         if (Tone && Tone.Transport.state !== 'started') { Tone.Transport.start(); }
+                         currentLoop.start(0); console.log(`Background loop ${currentLoopIndex + 1} restarted on unmute.`);
+                     }
+                 } else if (isMuted) { stopAudioLoop(); }
+            } else { console.warn("Cannot toggle mute: Tone.js not fully initialized."); }
+        }
+
+        // --- Utility Functions ---
+        function getRandomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+        function getRandomFloat(min, max) { return Math.random() * (max - min) + min; }
+        function showMessage(message, scoreBreakdown = "") { messageText.textContent = message; scoreBreakdownText.textContent = scoreBreakdown; messageOverlay.classList.add('visible'); }
+        function hideMessage() { messageOverlay.classList.remove('visible'); }
+        function getPathWidthAtY(y) { if (!gameHeight || gameHeight <= 0) return 100; const progress = Math.max(0, Math.min(1, (y - VANISHING_POINT_Y) / (gameHeight - VANISHING_POINT_Y))); const bottomWidth = gameWidth * PATH_BOTTOM_WIDTH_FACTOR; const topWidth = gameWidth * PATH_TOP_WIDTH_FACTOR; return topWidth + (bottomWidth - topWidth) * progress; }
+        function getPathStartXAtY(y) { if (!gameWidth || gameWidth <= 0) return 0; const currentWidth = getPathWidthAtY(y); return (gameWidth - currentWidth) / 2; }
+        function getScaleAtY(y) { if (!gameHeight || gameHeight <= 0) return MIN_SCALE; const clampedY = Math.max(VANISHING_POINT_Y, Math.min(gameHeight, y)); if (gameHeight === VANISHING_POINT_Y) return 1.0; const progress = (clampedY - VANISHING_POINT_Y) / (gameHeight - VANISHING_POINT_Y); return MIN_SCALE + (1.0 - MIN_SCALE) * Math.max(0, progress); }
+
+        // --- Math Operations ---
+        function applyOperation(currentScore, operation, value) { /* ... remains same ... */
+            switch (operation) {
+                case 'add': return currentScore + value;
+                case 'subtract': return Math.max(0, currentScore - value);
+                case 'multiply': if (currentScore === 0) return 0; return currentScore * value;
+                case 'divide': if (value === 0) return 0; if (currentScore <= 0) return 0; return currentScore / value;
+                default: console.warn("Unknown operation:", operation); return currentScore;
+            }
+        }
+         function isOperationLethal(currentScoreValue, operation, value) { return applyOperation(currentScoreValue, operation, value) <= 0; }
+
+        // --- Hall of Fame Functions ---
+        function loadHighScores() { /* ... remains same ... */
+            const scoresJSON = localStorage.getItem('perspectiveRunnerHighScores');
+            highScores = scoresJSON ? JSON.parse(scoresJSON) : [];
+            highScores.sort((a, b) => b.score - a.score);
+            console.log("High scores loaded:", highScores);
+        }
+        function saveHighScores() { /* ... remains same ... */
+            try { localStorage.setItem('perspectiveRunnerHighScores', JSON.stringify(highScores)); console.log("High scores saved."); }
+            catch (e) { console.error("Error saving high scores to localStorage:", e); }
+        }
+        function addHighScore(name, scoreValue) { /* ... remains same ... */
+            const validName = name.trim() || "AAA"; const finalScore = Math.round(scoreValue);
+            if (isNaN(finalScore)) { console.error("Invalid score value for high score:", scoreValue); return; }
+            highScores.push({ name: validName, score: finalScore }); highScores.sort((a, b) => b.score - a.score);
+            highScores = highScores.slice(0, MAX_HIGH_SCORES); saveHighScores();
+        }
+        function displayHighScores() { /* ... remains same ... */
+            hallOfFameList.innerHTML = '';
+            if (highScores.length === 0) { hallOfFameList.innerHTML = '<li>No scores yet!</li>'; return; }
+            highScores.forEach((scoreEntry, index) => {
+                const li = document.createElement('li');
+                const displayName = scoreEntry.name.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                li.innerHTML = `<span>${index + 1}. ${displayName}</span> <span>${scoreEntry.score}</span>`;
+                hallOfFameList.appendChild(li);
+            });
+        }
+
+        // --- Game Setup & Flow ---
+        function resizeCanvas() { /* ... remains same ... */
+            const container = document.getElementById('gameCanvasContainer'); if (!container) return;
+            const maxWidth = 600; const aspectRatio = 2 / 3; let newWidth = Math.min(container.offsetWidth, maxWidth); let newHeight = newWidth / aspectRatio;
+            const availableHeight = window.innerHeight * 0.85 - (gameScreen.offsetTop || 100); if (newHeight > availableHeight && availableHeight > 100) { newHeight = availableHeight; newWidth = newHeight * aspectRatio; }
+            if (!newWidth || !newHeight || newWidth <= 0 || newHeight <= 0 || isNaN(newWidth) || isNaN(newHeight)) { console.error("Invalid canvas dimensions, using fallback:", newWidth, newHeight); newWidth = 300; newHeight = 450; }
+            gameWidth = newWidth; gameHeight = newHeight; canvas.width = gameWidth; canvas.height = gameHeight; canvas.style.width = `${gameWidth}px`; canvas.style.height = `${gameHeight}px`;
+            if (gameRunning && player) { /* Reposition player if needed */ }
+        }
+        function handleWindowResize() { resizeCanvas(); console.log(`Canvas resized via window event to: ${gameWidth} x ${gameHeight}`); }
+
+        function createGateConfig(forceNegative = false, operationType = null) {
+            // Allow forcing a specific operation type (used for the high-score rule)
+            const allOperations = ['add', 'subtract', 'multiply', 'divide'];
+            const negativeOperations = ['subtract', 'divide'];
+            let operation = operationType; // Use provided type if available
+
+            if (!operation) { // If type not forced, generate normally
+                if (forceNegative) {
+                    operation = negativeOperations[getRandomInt(0, negativeOperations.length - 1)];
+                } else {
+                    operation = allOperations[getRandomInt(0, allOperations.length - 1)];
+                }
+            }
+
+            let value; let text; let gateValueForCollision;
+            switch (operation) {
+                case 'add': value = getRandomInt(1, 15); text = `+${value}`; gateValueForCollision = value; break;
+                case 'subtract': value = getRandomInt(1, Math.max(1, Math.round(score) + 5)); value = Math.min(value, 50 + Math.floor(score / 5)); text = `-${value}`; gateValueForCollision = value; break;
+                case 'multiply': value = getRandomInt(2, 3); text = `x${value}`; gateValueForCollision = value; break;
+                case 'divide': value = getRandomInt(2, Math.max(2, Math.round(score / 2) + 1)); value = Math.max(2, value); text = `/${value}`; gateValueForCollision = value; break;
+            }
+            // Validation (ensure valid values for subtract/divide)
+            if (operation === 'divide' && gateValueForCollision <= 0) { gateValueForCollision = 2; text = '/2'; }
+            if (operation === 'subtract' && gateValueForCollision <= 0) { gateValueForCollision = 1; text = '-1'; }
+            return { operation, value: gateValueForCollision, text };
+        }
+
+        /**
+         * Spawns a pair of gates, ensuring:
+         * 1. At least one is not lethal based on the current score.
+         * 2. If score >= threshold (forceNegative), the pair is not two subtractions.
+         */
+        function spawnGatePair() {
+            const pairId = nextPairId++;
+            const spawnY = -BASE_GATE_HEIGHT;
+            const forceNegative = score >= NEGATIVE_PAIR_THRESHOLD;
+            let attempts = 0;
+            let gate1Config, gate2Config;
+            let isG1Lethal, isG2Lethal;
+            let isValidPair = false;
+
+            // Loop until a valid pair is generated
+            do {
+                gate1Config = createGateConfig(forceNegative);
+                gate2Config = createGateConfig(forceNegative);
+
+                // Ensure the two gates are distinct (different operation or value)
+                while (gate1Config.operation === gate2Config.operation && gate1Config.value === gate2Config.value) {
+                    gate2Config = createGateConfig(forceNegative);
+                }
+
+                // --- High Score Rule: Prevent double subtraction ---
+                if (forceNegative && gate1Config.operation === 'subtract' && gate2Config.operation === 'subtract') {
+                    // If both are subtract, force the second one to be divide
+                    console.log("High score rule: Forcing divide instead of second subtract.");
+                    gate2Config = createGateConfig(true, 'divide'); // Force negative AND force 'divide' type
+                    // Re-ensure distinctness after forcing type (unlikely to clash now, but safe)
+                    while (gate1Config.operation === gate2Config.operation && gate1Config.value === gate2Config.value) {
+                         gate2Config = createGateConfig(true, 'divide');
+                    }
+                }
+                // --- End High Score Rule ---
+
+
+                // Check lethality based on the *current* game score
+                isG1Lethal = isOperationLethal(score, gate1Config.operation, gate1Config.value);
+                isG2Lethal = isOperationLethal(score, gate2Config.operation, gate2Config.value);
+
+                // Check if the pair is valid (at least one is not lethal)
+                isValidPair = !(isG1Lethal && isG2Lethal);
+
+                attempts++;
+                if (attempts > MAX_SPAWN_ATTEMPTS && !isValidPair) {
+                    console.warn("Max spawn attempts reached for safety. Forcing a safe gate.");
+                    // Force one gate to be safe if max attempts are hit (e.g., +1)
+                    gate2Config = { operation: 'add', value: 1, text: '+1'};
+                    isValidPair = true; // Mark as valid to exit loop
+                }
+
+            } while (!isValidPair); // Keep looping if BOTH are lethal
+
+            // Add the validated gate pair to the game state
+            gates.push({ type: 'gate', relativeX: 0.25, y: spawnY, baseHeight: BASE_GATE_HEIGHT, pairId: pairId, ...gate1Config, color: GATE_COLOR, passed: false });
+            gates.push({ type: 'gate', relativeX: 0.75, y: spawnY, baseHeight: BASE_GATE_HEIGHT, pairId: pairId, ...gate2Config, color: GATE_COLOR, passed: false });
+
+            // Optional: Log if a regeneration occurred due to lethality check
+            if (attempts > 1 && isValidPair) { // Log only if regenerated for lethality
+                 console.log(`Gate pair regenerated ${attempts - 1} times for lethality. Final pair: (${gate1Config.text}, ${gate2Config.text})`);
+            }
+        }
+
+
+        function spawnObstacle() { /* ... remains same ... */
+             const spawnY = -BASE_OBSTACLE_RADIUS * 2; const pathWidthAtSpawn = getPathWidthAtY(spawnY); const pathStartXAtSpawn = getPathStartXAtY(spawnY); const minXCenter = pathStartXAtSpawn + BASE_OBSTACLE_RADIUS; const maxXCenter = pathStartXAtSpawn + pathWidthAtSpawn - BASE_OBSTACLE_RADIUS; let centerX; if (minXCenter >= maxXCenter) { centerX = gameWidth / 2; } else { centerX = getRandomInt(minXCenter, maxXCenter); } let relativeX = 0.5; if (pathWidthAtSpawn > 0) { relativeX = (centerX - pathStartXAtSpawn) / pathWidthAtSpawn; } obstacles.push({ type: 'obstacle', relativeX: relativeX, y: spawnY, baseRadius: BASE_OBSTACLE_RADIUS, color: OBSTACLE_COLOR });
+        }
+        function spawnParticles(x, y, color) { /* ... remains same ... */
+             for (let i = 0; i < PARTICLE_COUNT; i++) { particles.push({ x: x, y: y, vx: getRandomFloat(-PARTICLE_SPEED_FACTOR, PARTICLE_SPEED_FACTOR), vy: getRandomFloat(-PARTICLE_SPEED_FACTOR * 1.5, -PARTICLE_SPEED_FACTOR * 0.5), size: getRandomFloat(PARTICLE_SIZE * 0.5, PARTICLE_SIZE * 1.5), color: color, life: PARTICLE_LIFE, opacity: 1.0 }); }
+        }
+        function updateScoreDisplay() { scoreElement.textContent = score.toFixed(2); }
+
+        function startGame() { /* ... remains same ... */
+            console.log("Starting game..."); score = 1; updateScoreDisplay(); gates = []; obstacles = []; particles = []; frameCount = 0; nextPairId = 0;
+            currentBaseGateSpeed = baseGateSpeed; currentBaseObstacleSpeed = baseObstacleSpeed; currentGateSpawnInterval = baseGateSpawnInterval; currentObstacleSpawnInterval = baseObstacleSpawnInterval; currentObstaclePenaltyPercent = baseObstaclePenaltyPercent;
+            gameRunning = true; startTime = performance.now(); elapsedTime = 0; timeElement.textContent = '0.0';
+            if (audioInitialized && !isMuted) { const currentLoop = backgroundLoops[currentLoopIndex]; if (currentLoop && currentLoop.state !== 'started') { if (Tone && Tone.Transport.state !== 'started') { Tone.Transport.start(); } currentLoop.start(0); console.log(`Background loop ${currentLoopIndex + 1} started for game.`); } }
+            resizeCanvas(); player.y = gameHeight - player.radius - 20; player.x = gameWidth / 2; playerTargetX = player.x; hideMessage();
+            if (animationFrameId) { cancelAnimationFrame(animationFrameId); }
+            gameLoop();
+        }
+        function showStartScreen() { /* ... remains same ... */
+             startScreen.style.display = 'flex'; gameScreen.style.display = 'none'; hideMessage(); displayHighScores();
+        }
+        function showGameScreen() { /* ... remains same ... */
+             startScreen.style.display = 'none'; gameScreen.style.display = 'flex'; resizeCanvas();
+        }
+
+        // --- Drawing Functions ---
+        function drawPlayer() { /* ... remains same ... */ ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fillStyle = player.color; ctx.fill(); ctx.closePath(); ctx.strokeStyle = '#a0aec0'; ctx.lineWidth = 2; ctx.stroke(); ctx.fillStyle = 'white'; const fontSize = Math.min(PLAYER_FONT_SIZE, player.radius * 0.7); ctx.font = `bold ${fontSize}px 'Press Start 2P'`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(Math.round(score), player.x, player.y + 1); }
+        function drawSingleGate(gate) { /* ... remains same ... */ const scale = getScaleAtY(gate.y); const scaledHeight = gate.baseHeight * scale; if (scaledHeight < 1 || gate.y > gameHeight || gate.y + scaledHeight < 0) return; const currentPathWidth = getPathWidthAtY(gate.y); const currentGateWidth = currentPathWidth * GATE_WIDTH_FACTOR; const currentPathStartX = getPathStartXAtY(gate.y); const currentCenterX = currentPathStartX + currentPathWidth * gate.relativeX; const drawX = currentCenterX - currentGateWidth / 2; ctx.fillStyle = GATE_COLOR; ctx.fillRect(drawX, gate.y, currentGateWidth, scaledHeight); ctx.strokeStyle = GATE_BORDER_COLOR; ctx.lineWidth = Math.max(1, 2 * scale); ctx.strokeRect(drawX, gate.y, currentGateWidth, scaledHeight); ctx.fillStyle = 'white'; const scaledFontSize = Math.max(MIN_GATE_FONT_SIZE, scaledHeight * GATE_FONT_HEIGHT_FACTOR); ctx.font = `bold ${scaledFontSize}px 'Press Start 2P'`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(gate.text, currentCenterX, gate.y + scaledHeight * 0.55); }
+        function drawSingleObstacle(obstacle) { /* ... remains same ... */ const scale = getScaleAtY(obstacle.y); const scaledRadius = obstacle.baseRadius * scale; if (scaledRadius < 1 || obstacle.y + scaledRadius < 0 || obstacle.y - scaledRadius > gameHeight) return; const currentPathWidth = getPathWidthAtY(obstacle.y); const currentPathStartX = getPathStartXAtY(obstacle.y); const currentCenterX = currentPathStartX + currentPathWidth * obstacle.relativeX; ctx.beginPath(); ctx.arc(currentCenterX, obstacle.y, scaledRadius, 0, Math.PI * 2); ctx.fillStyle = OBSTACLE_COLOR; ctx.fill(); ctx.closePath(); ctx.beginPath(); ctx.arc(currentCenterX, obstacle.y, scaledRadius, 0, Math.PI * 2); ctx.strokeStyle = OBSTACLE_BORDER_COLOR; ctx.lineWidth = Math.max(1, 1.5 * scale); ctx.stroke(); ctx.closePath(); }
+        function drawPath() { /* ... remains same ... */ const pathBottomWidth = gameWidth * PATH_BOTTOM_WIDTH_FACTOR; const pathTopWidth = gameWidth * PATH_TOP_WIDTH_FACTOR; const pathBottomStart = (gameWidth - pathBottomWidth) / 2; const pathTopStart = (gameWidth - pathTopWidth) / 2; ctx.fillStyle = PATH_COLOR; ctx.beginPath(); ctx.moveTo(pathBottomStart, gameHeight); ctx.lineTo(pathTopStart, VANISHING_POINT_Y); ctx.lineTo(pathTopStart + pathTopWidth, VANISHING_POINT_Y); ctx.lineTo(pathBottomStart + pathBottomWidth, gameHeight); ctx.closePath(); ctx.fill(); ctx.strokeStyle = PATH_BORDER_COLOR; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(pathBottomStart, gameHeight); ctx.lineTo(pathTopStart, VANISHING_POINT_Y); ctx.moveTo(pathBottomStart + pathBottomWidth, gameHeight); ctx.lineTo(pathTopStart + pathTopWidth, VANISHING_POINT_Y); ctx.stroke(); }
+        function drawParticles() { /* ... remains same ... */ for (let i = 0; i < particles.length; i++) { const p = particles[i]; ctx.save(); ctx.globalAlpha = p.opacity; ctx.fillStyle = p.color; ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size); ctx.restore(); } }
+
+        // --- Game Logic ---
+        function updatePlayerPosition() { /* ... remains same ... */ const dx = playerTargetX - player.x; player.x += dx * 0.15; const pathWidthAtPlayerY = getPathWidthAtY(player.y); const pathStartXAtPlayerY = getPathStartXAtY(player.y); const minX = pathStartXAtPlayerY + player.radius; const maxX = pathStartXAtPlayerY + pathWidthAtPlayerY - player.radius; player.x = Math.max(minX, Math.min(maxX, player.x)); }
+        function updateGates() { /* ... remains same ... */ let hitPairId = -1; for (let i = gates.length - 1; i >= 0; i--) { const gate = gates[i]; const scale = getScaleAtY(gate.y); const adjustedSpeed = Math.max(MIN_PIXEL_SPEED, currentBaseGateSpeed * (scale ** 1.5)); gate.y += adjustedSpeed; const currentPathWidth = getPathWidthAtY(gate.y); const currentGateWidth = currentPathWidth * GATE_WIDTH_FACTOR; const scaledHeight = gate.baseHeight * scale; const currentPathStartX = getPathStartXAtY(gate.y); const currentGateCenterX = currentPathStartX + currentPathWidth * gate.relativeX; const gateRectX = currentGateCenterX - currentGateWidth / 2; const gateRectY = gate.y; const playerLeft = player.x - player.radius; const playerRight = player.x + player.radius; const playerTop = player.y - player.radius; const playerBottom = player.y + player.radius; const gateLeft = gateRectX; const gateRight = gateRectX + currentGateWidth; const gateTop = gateRectY; const gateBottom = gateRectY + scaledHeight; if (playerRight > gateLeft && playerLeft < gateRight && playerBottom > gateTop && playerTop < gateBottom) { score = applyOperation(score, gate.operation, gate.value); updateScoreDisplay(); spawnParticles(player.x, player.y, gate.color); hitPairId = gate.pairId; gates.splice(i, 1); if (score <= 0) { gameOver("Score reached zero!"); return; } } else if (gate.y > gameHeight) { gates.splice(i, 1); } } if (hitPairId !== -1) { for (let i = gates.length - 1; i >= 0; i--) { if (gates[i].pairId === hitPairId) { gates.splice(i, 1); } } } }
+        function updateObstacles() { /* ... remains same ... */ for (let i = obstacles.length - 1; i >= 0; i--) { const obstacle = obstacles[i]; const scale = getScaleAtY(obstacle.y); const adjustedSpeed = Math.max(MIN_PIXEL_SPEED, currentBaseObstacleSpeed * (scale ** 1.5)); obstacle.y += adjustedSpeed; const scaledRadius = obstacle.baseRadius * scale; const currentPathWidth = getPathWidthAtY(obstacle.y); const currentPathStartX = getPathStartXAtY(obstacle.y); const obstacleCenterX = currentPathStartX + currentPathWidth * obstacle.relativeX; const obstacleCenterY = obstacle.y; const dx = player.x - obstacleCenterX; const dy = player.y - obstacleCenterY; const distanceSquared = dx * dx + dy * dy; const radiiSumSquared = (player.radius + scaledRadius) * (player.radius + scaledRadius); if (distanceSquared < radiiSumSquared) { const penalty = Math.max(1, Math.ceil(Math.max(1, score) * currentObstaclePenaltyPercent)); score = Math.max(0, score - penalty); updateScoreDisplay(); spawnParticles(player.x, player.y, obstacle.color); obstacles.splice(i, 1); if (score <= 0) { gameOver("Hit an obstacle!"); return; } } else if (obstacle.y - scaledRadius > gameHeight) { obstacles.splice(i, 1); } } }
+        function updateParticles() { /* ... remains same ... */ for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += PARTICLE_GRAVITY; p.life--; p.opacity = Math.max(0, p.life / PARTICLE_LIFE); if (p.life <= 0 || p.y > gameHeight || p.opacity <= 0) { particles.splice(i, 1); } } }
+        function increaseDifficulty() { /* ... remains same ... */ currentBaseGateSpeed = Math.min(MAX_GATE_SPEED, currentBaseGateSpeed + speedIncreaseFactor); currentBaseObstacleSpeed = Math.min(MAX_OBSTACLE_SPEED, currentBaseObstacleSpeed + speedIncreaseFactor); currentGateSpawnInterval = Math.max(MIN_GATE_INTERVAL, currentGateSpawnInterval - intervalDecreaseFactor); currentObstacleSpawnInterval = Math.max(MIN_OBSTACLE_INTERVAL, currentObstacleSpawnInterval - intervalDecreaseFactor); currentObstaclePenaltyPercent = Math.min(MAX_OBSTACLE_PENALTY_PERCENT, currentObstaclePenaltyPercent + obstaclePenaltyIncreaseFactor); }
+
+        function handleGameEnd(win = false) { /* ... remains same ... */
+            if (!gameRunning) return; gameRunning = false; if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; }
+            elapsedTime = performance.now() - startTime; console.log(win ? "Player Wins!" : "Game Over!"); stopAudioLoop();
+            const timeBonus = Math.floor(elapsedTime / 1000) * TIME_BONUS_MULTIPLIER; const finalScoreValue = Math.max(0, score) + timeBonus;
+            addHighScore(currentPlayerName, finalScoreValue);
+            const scoreBreakdown = `Base Score: ${Math.max(0, score).toFixed(2)} | Time Bonus: ${timeBonus} (${(elapsedTime / 1000).toFixed(1)}s)`;
+            const message = win ? `You Win! Final Score: ${Math.round(finalScoreValue)}` : `Game Over! Final Score: ${Math.round(finalScoreValue)}`;
+            showMessage(message, scoreBreakdown);
+        }
+        function gameOver(reason = "Score reached zero!") { console.log("Game Over Reason:", reason); handleGameEnd(false); }
+        function gameWin() { handleGameEnd(true); }
+
+        // --- Main Game Loop ---
+        function gameLoop(timestamp) { /* ... remains same ... */
+            if (!gameRunning) return; elapsedTime = performance.now() - startTime; if (elapsedTime / 1000 >= WIN_TIME_SECONDS) { gameWin(); return; } timeElement.textContent = (elapsedTime / 1000).toFixed(1);
+            ctx.clearRect(0, 0, gameWidth, gameHeight); drawPath();
+            let renderables = [ ...gates.map(g => { const scale = getScaleAtY(g.y); const scaledHeight = g.baseHeight * scale; return { ...g, type: 'gate', sortY: g.y + scaledHeight / 2 }; }), ...obstacles.map(o => ({ ...o, type: 'obstacle', sortY: o.y })) ];
+            renderables.sort((a, b) => a.sortY - b.sortY); renderables.forEach(item => { if (item.type === 'gate') { drawSingleGate(item); } else if (item.type === 'obstacle') { drawSingleObstacle(item); } });
+            drawParticles(); frameCount++;
+            if (frameCount % difficultyIncreaseInterval === 0) { increaseDifficulty(); }
+            if (frameCount % Math.floor(currentGateSpawnInterval) === 0) { spawnGatePair(); }
+            if (frameCount % Math.floor(currentObstacleSpawnInterval) === 0) { spawnObstacle(); }
+            updateGates(); if (!gameRunning) return; updateObstacles(); if (!gameRunning) return; updateParticles(); updatePlayerPosition(); drawPlayer();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        // --- Input Handling ---
+        function handleMove(clientX) { /* ... remains same ... */
+            if (gameRunning && !audioInitialized) { (async () => { await startAudio(); })(); } if (!gameRunning) return; const rect = canvas.getBoundingClientRect(); if (!rect || rect.width === 0) return; const scaleX = canvas.width / rect.width; const canvasX = (clientX - rect.left) * scaleX; playerTargetX = canvasX;
+        }
+
+        // --- Event Listeners ---
+        canvas.addEventListener('pointerdown', (e) => { /* ... remains same ... */
+            if (gameRunning && !audioInitialized) { (async () => { await startAudio(); })(); } if (e.isPrimary) { handleMove(e.clientX); canvas.onpointermove = (moveEvent) => { if (moveEvent.isPrimary) { handleMove(moveEvent.clientX); } }; canvas.setPointerCapture(e.pointerId); }
+        });
+        canvas.addEventListener('pointerup', (e) => { /* ... remains same ... */ if (e.isPrimary) { canvas.onpointermove = null; canvas.releasePointerCapture(e.pointerId); } });
+        canvas.addEventListener('pointerleave', (e) => { /* ... remains same ... */ if (e.isPrimary && canvas.onpointermove) { canvas.onpointermove = null; canvas.releasePointerCapture(e.pointerId); } });
+        startGameButton.addEventListener('click', () => { /* ... remains same ... */ currentPlayerName = playerNameInput.value.trim() || "AAA"; console.log(`Player Name Set: ${currentPlayerName}`); showGameScreen(); startGame(); });
+        backToMenuButton.addEventListener('click', showStartScreen); /* ... remains same ... */
+        muteButton.addEventListener('click', toggleMute); /* ... remains same ... */
+        soundSelect.addEventListener('change', changeSound); /* ... remains same ... */
+
+        // --- Initialization ---
+        function init() { /* ... remains same ... */
+            console.log("Initializing Application..."); window.addEventListener('resize', handleWindowResize); setupAudio(); loadHighScores(); showStartScreen();
+        }
+        init();
+
+    </script>
+
+</body>
+</html>
+
+
