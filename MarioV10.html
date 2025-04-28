@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Platformer with Mushrooms</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #5c94fc; /* Light blue background */
+            margin: 0;
+            font-family: 'Press Start 2P', cursive; /* Use the game font */
+            color: white;
+            flex-direction: column; /* Stack elements vertically */
+            overflow: hidden; /* Prevent scrollbars from appearing due to canvas */
+            padding-bottom: 20px; /* Add padding to prevent button overlap on small screens */
+        }
+        canvas {
+            border: 5px solid #000;
+            background-color: #70d0ff; /* Slightly darker blue for game area */
+            display: block;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            border-radius: 8px;
+            margin-top: 10px;
+            /* Ensure canvas tries to fit container, but max width/height set by attributes */
+            max-width: 100%;
+            height: auto;
+        }
+        #game-container {
+            text-align: center;
+            position: relative; /* Needed for absolute positioning of HP bar */
+            width: 800px; /* Set container width to match canvas */
+            max-width: 95%; /* Allow shrinking on smaller screens */
+        }
+        #info-display { /* Container for score, lives and level */
+             display: flex;
+             justify-content: space-between; /* Align items */
+             width: 100%; /* Take full width of container */
+             margin-bottom: 10px;
+             flex-wrap: wrap; /* Allow wrapping on small screens */
+        }
+        #score-display, #level-display, #lives-display { /* Added lives display */
+            font-size: 1.5em;
+            text-shadow: 2px 2px #000;
+            margin: 0 10px; /* Adjust spacing */
+            white-space: nowrap; /* Prevent text wrapping */
+        }
+        #message-box { /* Style for game messages (Game Over/Win) */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 1.2em;
+            display: none; /* Hidden by default */
+            z-index: 10;
+            border: 3px solid white;
+            text-align: center; /* Center text in message box */
+            white-space: pre-line; /* Respect newline characters */
+            width: 80%; /* Make message box responsive */
+            max-width: 400px;
+        }
+        #instructions {
+            margin-top: 15px; /* Reduced margin */
+            font-size: 0.9em;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            width: 100%; /* Take full width */
+        }
+        #instructions p {
+            margin: 5px 0;
+        }
+        /* Style for Boss HP */
+        #boss-hp-bar {
+            position: absolute;
+            top: 55px; /* Position relative to game-container, below title */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 20px;
+            background-color: #555;
+            border: 2px solid white;
+            border-radius: 5px;
+            display: none; /* Hidden initially */
+            z-index: 5;
+        }
+        #boss-hp-fill {
+            width: 100%; /* Start full */
+            height: 100%;
+            background-color: red;
+            border-radius: 3px;
+            transition: width 0.3s ease-in-out; /* Smooth HP decrease */
+        }
+
+        /* Simple text shadow for better readability */
+        .text-shadow {
+             text-shadow: 2px 2px #000;
+        }
+
+        /* Mute Button Style */
+        #muteButton {
+            margin-top: 15px; /* Space above the button */
+            padding: 8px 15px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.8em;
+            color: white;
+            background-color: #f2a63a; /* Orange button */
+            border: 2px solid white;
+            border-radius: 5px;
+            box-shadow: 0 4px #c9801a; /* Button shadow */
+            cursor: pointer;
+            transition: background-color 0.2s, box-shadow 0.2s, transform 0.1s;
+            text-shadow: 1px 1px #000;
+        }
+        #muteButton:active {
+             box-shadow: 0 1px #c9801a;
+             transform: translateY(3px); /* Simulate press */
+        }
+        #muteButton.muted {
+            background-color: #888; /* Grey when muted */
+            box-shadow: 0 4px #555;
+        }
+         #muteButton.muted:active {
+             box-shadow: 0 1px #555;
+         }
+
+
+        /* Responsive adjustments */
+        @media (max-width: 850px) {
+             #game-container {
+                 width: 95%;
+             }
+             #info-display {
+                  width: 100%;
+                  justify-content: space-around; /* Better spacing on wrap */
+             }
+             #score-display, #level-display, #lives-display {
+                font-size: 1.2em;
+                margin-bottom: 5px; /* Add space when wrapped */
+             }
+             #instructions {
+                 font-size: 0.8em;
+             }
+             h1 {
+                 font-size: 1.875rem; /* Tailwind text-2xl */
+             }
+        }
+         @media (max-width: 480px) {
+             #score-display, #level-display, #lives-display {
+                font-size: 1em;
+             }
+              h1 {
+                 font-size: 1.5rem; /* Tailwind text-xl */
+             }
+             #instructions {
+                 font-size: 0.7em;
+                 padding: 10px;
+             }
+             #message-box {
+                 font-size: 1em;
+                 padding: 15px;
+             }
+             #muteButton {
+                 font-size: 0.7em;
+                 padding: 6px 12px;
+             }
+        }
+
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1 class="text-3xl mb-4 text-white text-shadow">Simple Platformer</h1>
+        <div id="boss-hp-bar"><div id="boss-hp-fill"></div></div>
+        <div id="info-display">
+            <div id="score-display">Score: 0</div>
+            <div id="lives-display">Lives: 5</div>
+            <div id="level-display">Level: 1-1</div>
+        </div>
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <div id="message-box"></div>
+        <div id="instructions">
+            <p>Move: Arrow Keys (◀ ▶) or A / D</p>
+            <p>Jump: Spacebar, Up Arrow (▲), or W</p>
+            <p>Jump on enemies to defeat them!</p>
+            <p>Stomp the Boss 3 times & Dodge Fireballs!</p>
+            <p>Collect coins & mushrooms! Reach the flag (or Boss)!</p> </div>
+         <button id="muteButton">Mute Music</button>
+    </div>
+
+    <script>
+        // --- Game Setup ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score-display');
+        const levelElement = document.getElementById('level-display');
+        const livesElement = document.getElementById('lives-display');
+        const messageBox = document.getElementById('message-box');
+        const bossHpBar = document.getElementById('boss-hp-bar');
+        const bossHpFill = document.getElementById('boss-hp-fill');
+        const muteButton = document.getElementById('muteButton');
+
+        // --- Audio Setup (Tone.js) ---
+        let audioInitialized = false;
+        let isMuted = false;
+        const sounds = {
+            jump: new Tone.Synth({ oscillator: { type: "square" }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.1, release: 0.1 } }).toDestination(),
+            coin: new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 } }).toDestination(),
+            stomp: new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.1 } }).toDestination(),
+            playerHit: new Tone.NoiseSynth({ noise: { type: "white" }, envelope: { attack: 0.01, decay: 0.3, sustain: 0, release: 0.1 } }).toDestination(),
+            bossHit: new Tone.Synth({ oscillator: { type: "sawtooth" }, envelope: { attack: 0.01, decay: 0.4, sustain: 0, release: 0.1 } }).toDestination(),
+            bossFire: new Tone.Synth({ oscillator: { type: "pwm", modulationFrequency: 0.5 }, envelope: { attack: 0.02, decay: 0.2, sustain: 0.1, release: 0.2 } }).toDestination(),
+            win: new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.05, decay: 0.1, sustain: 0.2, release: 0.2 } }).toDestination(),
+            lose: new Tone.Synth({ oscillator: { type: "fmsquare", modulationIndex: 10 }, envelope: { attack: 0.1, decay: 0.5, sustain: 0, release: 0.2 } }).toDestination(),
+            musicSynth: new Tone.Synth({ oscillator: { type: "pulse", width: 0.6 }, envelope: { attack: 0.05, decay: 0.1, sustain: 0.1, release: 0.3 } }).toDestination(),
+            powerUp: new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.2, release: 0.2 } }).toDestination(),
+            powerDown: new Tone.Synth({ oscillator: { type: "sawtooth", detune: 10 }, envelope: { attack: 0.01, decay: 0.3, sustain: 0, release: 0.1 } }).toDestination(),
+        };
+        // Volumes...
+        sounds.playerHit.volume.value = -10;
+        sounds.bossFire.volume.value = -6;
+        sounds.win.volume.value = -3;
+        sounds.musicSynth.volume.value = -18;
+        sounds.powerUp.volume.value = -5;
+        sounds.powerDown.volume.value = -8;
+
+
+        // Music Sequence... (no changes)
+        const musicSequence = new Tone.Sequence((time, note) => {
+            if (!isMuted && audioInitialized) {
+                 sounds.musicSynth.triggerAttackRelease(note, '8n', time);
+            }
+        }, ['C3', 'G3', 'E3', 'G3', 'D3', 'A3', 'F3', 'A3'], '4n');
+
+        // playSound function... (no changes)
+        function playSound(sound, noteOrDuration, duration = '8n') {
+            if (!audioInitialized) return;
+            try {
+                const startTime = Tone.now() + 0.001;
+                if (sound instanceof Tone.NoiseSynth) {
+                    const noiseDuration = typeof noteOrDuration === 'string' ? noteOrDuration : '8n';
+                    sound.triggerAttackRelease(noiseDuration, startTime);
+                } else if (Array.isArray(noteOrDuration)) {
+                    noteOrDuration.forEach((n, i) => {
+                        sound.triggerAttackRelease(n, duration, startTime + i * 0.1);
+                    });
+                } else {
+                    sound.triggerAttackRelease(noteOrDuration, duration, startTime);
+                }
+            } catch (e) {
+                console.error("Error playing sound:", e);
+            }
+        }
+
+
+        // --- Game State Variables ---
+        let score = 0;
+        const STARTING_LIVES = 5;
+        let playerLives = STARTING_LIVES;
+        let gameActive = true;
+        let currentLevelIndex = 0;
+        let bossDefeated = false;
+        let levelCompleteState = false;
+        let gameOverState = false;
+        const playerHeight = 40;
+        const playerWidth = 30;
+        const bigPlayerHeight = 60;
+        const bigPlayerWidth = 40;
+        const groundPlatformHeight = 20;
+        const START_POS = { x: 50, y: canvas.height - groundPlatformHeight - playerHeight };
+        let cameraX = 0;
+
+        // --- Game Constants ---
+        const BASE_LEVEL_WIDTH = 2400;
+        const LEVEL_WIDTH = BASE_LEVEL_WIDTH * 2;
+        const BOSS_LEVEL_WIDTH = 800;
+        const GRAVITY = 0.6; const PLAYER_MOVE_SPEED = 5; const PLAYER_JUMP_FORCE = 12; const PLAYER_STOMP_BOUNCE = 8; const STOMP_SCORE = 50; const COIN_SIZE = 15; const ENEMY_SPEED = 1.5; const ENEMY_SIZE = { width: 30, height: 30 }; const GOAL_POLE_TOP_MARGIN = 40; const GOAL_POLE_HEIGHT = canvas.height - groundPlatformHeight - GOAL_POLE_TOP_MARGIN; const GOAL_SIZE = { width: 15, height: GOAL_POLE_HEIGHT }; const BOSS_SIZE = { width: 80, height: 60 }; const BOSS_SPEED = 2.5; const BOSS_MAX_HP = 3; const FIREBALL_SIZE = 12; const FIREBALL_SPEED = 4; const FIREBALL_BOUNCE_VELOCITY = -PLAYER_JUMP_FORCE * 0.65; const BOSS_FIRE_RATE = 120;
+        const MUSHROOM_SIZE = 25;
+        const MUSHROOM_SCORE = 100;
+        const INVINCIBILITY_DURATION = 60;
+
+        // --- Player Object ---
+        const player = {
+            x: START_POS.x, y: START_POS.y,
+            width: playerWidth, height: playerHeight,
+            color: '#e60012',
+            velocityX: 0, velocityY: 0,
+            isJumping: false, isOnGround: false,
+            isBig: false,
+            invincibleTimer: 0
+        };
+
+        // --- Level Data ---
+        // Added 10 more enemies to levels 0, 1, 2
+        const levels = [
+             // --- Level 0 (Displayed as Level 1-1) ---
+             {
+                 levelWidth: LEVEL_WIDTH, name: "1-1",
+                 platforms: [ { x: 0, y: canvas.height - groundPlatformHeight, width: LEVEL_WIDTH, height: groundPlatformHeight, color: '#945c00', isGround: true }, { x: 150, y: canvas.height - 100, width: 100, height: 20, color: '#e8a018', isGround: false }, { x: 300, y: canvas.height - 180, width: 150, height: 20, color: '#e8a018', isGround: false }, { x: 550, y: canvas.height - 120, width: 120, height: 20, color: '#e8a018', isGround: false }, { x: 450, y: canvas.height - 250, width: 80, height: 20, color: '#e8a018', isGround: false }, { x: 850, y: canvas.height - 80, width: 150, height: 20, color: '#e8a018', isGround: false }, { x: 1050, y: canvas.height - 150, width: 100, height: 20, color: '#e8a018', isGround: false }, { x: 1200, y: canvas.height - 220, width: 120, height: 20, color: '#e8a018', isGround: false }, { x: 1400, y: canvas.height - 100, width: 180, height: 20, color: '#e8a018', isGround: false }, { x: 1650, y: canvas.height - 180, width: 100, height: 20, color: '#e8a018', isGround: false }, { x: 1800, y: canvas.height - 250, width: 150, height: 20, color: '#e8a018', isGround: false }, { x: 2000, y: canvas.height - 120, width: 100, height: 20, color: '#e8a018', isGround: false }, { x: 2500, y: canvas.height - 100, width: 150, height: 20, color: '#e8a018', isGround: false }, { x: 2750, y: canvas.height - 160, width: 100, height: 20, color: '#e8a018', isGround: false }, { x: 2900, y: canvas.height - 220, width: 120, height: 20, color: '#e8a018', isGround: false }, { x: 3100, y: canvas.height - 120, width: 180, height: 20, color: '#e8a018', isGround: false }, { x: 3350, y: canvas.height - 180, width: 100, height: 20, color: '#e8a018', isGround: false }, { x: 3550, y: canvas.height - 80, width: 150, height: 20, color: '#e8a018', isGround: false }, { x: 3800, y: canvas.height - 140, width: 100, height: 20, color: '#e8a018', isGround: false }, { x: 4000, y: canvas.height - 200, width: 150, height: 20, color: '#e8a018', isGround: false }, { x: 4250, y: canvas.height - 100, width: 100, height: 20, color: '#e8a018', isGround: false }, ],
+                 coins: [ { x: 185, y: canvas.height - 130, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 320, y: canvas.height - 210, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 370, y: canvas.height - 210, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 420, y: canvas.height - 210, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 585, y: canvas.height - 150, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 700, y: canvas.height - 50, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 880, y: canvas.height - 110, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 930, y: canvas.height - 110, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 1080, y: canvas.height - 180, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 1240, y: canvas.height - 250, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 1420, y: canvas.height - 130, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 1470, y: canvas.height - 130, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 1520, y: canvas.height - 130, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 1680, y: canvas.height - 210, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 1850, y: canvas.height - 280, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 2030, y: canvas.height - 150, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 2150, y: canvas.height - 50, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 2550, y: canvas.height - 130, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 2800, y: canvas.height - 190, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 2940, y: canvas.height - 250, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 2980, y: canvas.height - 250, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 3150, y: canvas.height - 150, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 3200, y: canvas.height - 150, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 3250, y: canvas.height - 150, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 3400, y: canvas.height - 210, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 3600, y: canvas.height - 110, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 3850, y: canvas.height - 170, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 4050, y: canvas.height - 230, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 4100, y: canvas.height - 230, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 4300, y: canvas.height - 130, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 4500, y: canvas.height - 50, width: COIN_SIZE, height: COIN_SIZE, collected: false }, ],
+                 enemies: [
+                     // Original 10
+                     { type: 'brown', x: 300, startX: 250, patrolDistance: 200, platformY: canvas.height - groundPlatformHeight }, { type: 'brown', x: 560, startX: 550, patrolDistance: 120 - ENEMY_SIZE.width, platformY: canvas.height - 120 }, { type: 'brown', x: 900, startX: 850, patrolDistance: 150 - ENEMY_SIZE.width, platformY: canvas.height - 80 }, { type: 'brown', x: 1450, startX: 1400, patrolDistance: 180 - ENEMY_SIZE.width, platformY: canvas.height - 100 }, { type: 'brown', x: 1900, startX: 1850, patrolDistance: 250, platformY: canvas.height - groundPlatformHeight }, { type: 'green', x: 2600, startX: 2550, patrolDistance: 200, platformY: canvas.height - groundPlatformHeight }, { type: 'brown', x: 2950, startX: 2900, patrolDistance: 120 - ENEMY_SIZE.width, platformY: canvas.height - 220 }, { type: 'brown', x: 3150, startX: 3100, patrolDistance: 180 - ENEMY_SIZE.width, platformY: canvas.height - 120 }, { type: 'green', x: 3600, startX: 3550, patrolDistance: 150 - ENEMY_SIZE.width, platformY: canvas.height - 80 }, { type: 'brown', x: 4100, startX: 4000, patrolDistance: 250, platformY: canvas.height - groundPlatformHeight },
+                     // Added 10 more
+                     { type: 'green', x: 150, startX: 100, patrolDistance: 150, platformY: canvas.height - groundPlatformHeight },
+                     { type: 'brown', x: 750, startX: 700, patrolDistance: 150, platformY: canvas.height - groundPlatformHeight },
+                     { type: 'green', x: 1100, startX: 1050, patrolDistance: 100 - ENEMY_SIZE.width, platformY: canvas.height - 150 },
+                     { type: 'brown', x: 1700, startX: 1650, patrolDistance: 100 - ENEMY_SIZE.width, platformY: canvas.height - 180 },
+                     { type: 'green', x: 2200, startX: 2150, patrolDistance: 150, platformY: canvas.height - groundPlatformHeight },
+                     { type: 'brown', x: 2800, startX: 2750, patrolDistance: 100 - ENEMY_SIZE.width, platformY: canvas.height - 160 },
+                     { type: 'green', x: 3300, startX: 3250, patrolDistance: 150, platformY: canvas.height - groundPlatformHeight },
+                     { type: 'brown', x: 3400, startX: 3350, patrolDistance: 100 - ENEMY_SIZE.width, platformY: canvas.height - 180 },
+                     { type: 'green', x: 4050, startX: 4000, patrolDistance: 150 - ENEMY_SIZE.width, platformY: canvas.height - 200 },
+                     { type: 'brown', x: 4400, startX: 4350, patrolDistance: 150, platformY: canvas.height - groundPlatformHeight },
+                 ],
+                 mushrooms: [ { x: 480, y: canvas.height - 280, width: MUSHROOM_SIZE, height: MUSHROOM_SIZE, collected: false }, ],
+                 goal: { x: LEVEL_WIDTH - GOAL_SIZE.width - 50, y: canvas.height - groundPlatformHeight - GOAL_SIZE.height }
+             },
+             // --- Level 1 (Displayed as Level 1-2) ---
+             {
+                 levelWidth: LEVEL_WIDTH, name: "1-2",
+                 platforms: [ { x: 0, y: canvas.height - groundPlatformHeight, width: LEVEL_WIDTH, height: groundPlatformHeight, color: '#945c00', isGround: true }, { x: 200, y: canvas.height - 120, width: 150, height: 20, color: '#e8a018', isGround: false }, { x: 450, y: canvas.height - 180, width: 100, height: 20, color: '#e8a018', isGround: false }, { x: 650, y: canvas.height - 100, width: 100, height: 20, color: '#e8a018', isGround: false }, { x: 850, y: canvas.height - 250, width: 120, height: 20, color: '#e8a018', isGround: false }, { x: 1100, y: canvas.height - 150, width: 200, height: 20, color: '#e8a018', isGround: false }, { x: 1400, y: canvas.height - 80, width: 100, height: 20, color: '#e8a018', isGround: false }, { x: 1600, y: canvas.height - 160, width: 150, height: 20, color: '#e8a018', isGround: false }, { x: 1850, y: canvas.height - 220, width: 100, height: 20, color: '#e8a018', isGround: false }, { x: 2100, y: canvas.height - 100, width: 150, height: 20, color: '#e8a018', isGround: false }, { x: 2450, y: canvas.height - 140, width: 100, height: 20, color: '#e8a018', isGround: false }, { x: 2650, y: canvas.height - 200, width: 150, height: 20, color: '#e8a018', isGround: false }, { x: 2900, y: canvas.height - 100, width: 100, height: 20, color: '#e8a018', isGround: false }, { x: 3100, y: canvas.height - 180, width: 120, height: 20, color: '#e8a018', isGround: false }, { x: 3300, y: canvas.height - 240, width: 100, height: 20, color: '#e8a018', isGround: false }, { x: 3500, y: canvas.height - 120, width: 200, height: 20, color: '#e8a018', isGround: false }, { x: 3800, y: canvas.height - 160, width: 150, height: 20, color: '#e8a018', isGround: false }, { x: 4100, y: canvas.height - 90, width: 100, height: 20, color: '#e8a018', isGround: false }, { x: 4350, y: canvas.height - 190, width: 120, height: 20, color: '#e8a018', isGround: false }, ],
+                 coins: [ { x: 250, y: canvas.height - 150, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 500, y: canvas.height - 210, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 700, y: canvas.height - 130, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 900, y: canvas.height - 280, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 1150, y: canvas.height - 180, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 1200, y: canvas.height - 180, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 1250, y: canvas.height - 180, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 1450, y: canvas.height - 110, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 1650, y: canvas.height - 190, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 1900, y: canvas.height - 250, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 2150, y: canvas.height - 130, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 2250, y: canvas.height - 50, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 2500, y: canvas.height - 170, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 2700, y: canvas.height - 230, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 2750, y: canvas.height - 230, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 2950, y: canvas.height - 130, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 3150, y: canvas.height - 210, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 3350, y: canvas.height - 270, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 3550, y: canvas.height - 150, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 3600, y: canvas.height - 150, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 3650, y: canvas.height - 150, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 3850, y: canvas.height - 190, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 4150, y: canvas.height - 120, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 4400, y: canvas.height - 220, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 4600, y: canvas.height - 50, width: COIN_SIZE, height: COIN_SIZE, collected: false }, ],
+                 enemies: [
+                     // Original 10
+                     { type: 'green', x: 400, startX: 380, patrolDistance: 150, platformY: canvas.height - groundPlatformHeight }, { type: 'green', x: 700, startX: 650, patrolDistance: 100 - ENEMY_SIZE.width, platformY: canvas.height - 100 }, { type: 'green', x: 1150, startX: 1100, patrolDistance: 200 - ENEMY_SIZE.width, platformY: canvas.height - 150 }, { type: 'green', x: 1650, startX: 1600, patrolDistance: 150 - ENEMY_SIZE.width, platformY: canvas.height - 160 }, { type: 'green', x: 2000, startX: 1950, patrolDistance: 200, platformY: canvas.height - groundPlatformHeight }, { type: 'brown', x: 2700, startX: 2650, patrolDistance: 150 - ENEMY_SIZE.width, platformY: canvas.height - 200 }, { type: 'green', x: 3000, startX: 2950, patrolDistance: 150, platformY: canvas.height - groundPlatformHeight }, { type: 'green', x: 3200, startX: 3100, patrolDistance: 120 - ENEMY_SIZE.width, platformY: canvas.height - 180 }, { type: 'brown', x: 3550, startX: 3500, patrolDistance: 200 - ENEMY_SIZE.width, platformY: canvas.height - 120 }, { type: 'green', x: 4200, startX: 4150, patrolDistance: 150, platformY: canvas.height - groundPlatformHeight },
+                     // Added 10 more
+                     { type: 'brown', x: 250, startX: 200, patrolDistance: 150 - ENEMY_SIZE.width, platformY: canvas.height - 120 },
+                     { type: 'green', x: 500, startX: 450, patrolDistance: 100 - ENEMY_SIZE.width, platformY: canvas.height - 180 },
+                     { type: 'brown', x: 900, startX: 850, patrolDistance: 120 - ENEMY_SIZE.width, platformY: canvas.height - 250 },
+                     { type: 'green', x: 1450, startX: 1400, patrolDistance: 100 - ENEMY_SIZE.width, platformY: canvas.height - 80 },
+                     { type: 'brown', x: 2300, startX: 2250, patrolDistance: 150, platformY: canvas.height - groundPlatformHeight },
+                     { type: 'green', x: 2500, startX: 2450, patrolDistance: 100 - ENEMY_SIZE.width, platformY: canvas.height - 140 },
+                     { type: 'brown', x: 2950, startX: 2900, patrolDistance: 100 - ENEMY_SIZE.width, platformY: canvas.height - 100 },
+                     { type: 'green', x: 3350, startX: 3300, patrolDistance: 100 - ENEMY_SIZE.width, platformY: canvas.height - 240 },
+                     { type: 'brown', x: 3850, startX: 3800, patrolDistance: 150 - ENEMY_SIZE.width, platformY: canvas.height - 160 },
+                     { type: 'green', x: 4400, startX: 4350, patrolDistance: 120 - ENEMY_SIZE.width, platformY: canvas.height - 190 },
+                 ],
+                 mushrooms: [ { x: 900, y: canvas.height - 50 - MUSHROOM_SIZE, width: MUSHROOM_SIZE, height: MUSHROOM_SIZE, collected: false }, ],
+                 goal: { x: LEVEL_WIDTH - GOAL_SIZE.width - 50, y: canvas.height - groundPlatformHeight - GOAL_SIZE.height }
+             },
+              // --- Level 2 (Displayed as Level 1-3) ---
+              {
+                  levelWidth: LEVEL_WIDTH, name: "1-3",
+                  platforms: [ { x: 0, y: canvas.height - groundPlatformHeight, width: LEVEL_WIDTH, height: groundPlatformHeight, color: '#945c00', isGround: true }, { x: 100, y: canvas.height - 80, width: 80, height: 20, color: '#e8a018', isGround: false }, { x: 250, y: canvas.height - 140, width: 80, height: 20, color: '#e8a018', isGround: false }, { x: 400, y: canvas.height - 200, width: 80, height: 20, color: '#e8a018', isGround: false }, { x: 550, y: canvas.height - 140, width: 80, height: 20, color: '#e8a018', isGround: false }, { x: 700, y: canvas.height - 80, width: 80, height: 20, color: '#e8a018', isGround: false }, { x: 950, y: canvas.height - 80, width: 150, height: 20, color: '#e8a018', isGround: false }, { x: 1150, y: canvas.height - 160, width: 150, height: 20, color: '#e8a018', isGround: false }, { x: 1350, y: canvas.height - 240, width: 150, height: 20, color: '#e8a018', isGround: false }, { x: 1600, y: canvas.height - 120, width: 200, height: 20, color: '#e8a018', isGround: false }, { x: 1900, y: canvas.height - 180, width: 100, height: 20, color: '#e8a018', isGround: false }, { x: 2100, y: canvas.height - 100, width: 100, height: 20, color: '#e8a018', isGround: false }, { x: 2450, y: canvas.height - 120, width: 100, height: 20, color: '#e8a018', isGround: false }, { x: 2600, y: canvas.height - 180, width: 80, height: 20, color: '#e8a018', isGround: false }, { x: 2750, y: canvas.height - 120, width: 80, height: 20, color: '#e8a018', isGround: false }, { x: 2900, y: canvas.height - 180, width: 80, height: 20, color: '#e8a018', isGround: false }, { x: 3050, y: canvas.height - 120, width: 80, height: 20, color: '#e8a018', isGround: false }, { x: 3300, y: canvas.height - 100, width: 150, height: 20, color: '#e8a018', isGround: false }, { x: 3550, y: canvas.height - 180, width: 150, height: 20, color: '#e8a018', isGround: false }, { x: 3800, y: canvas.height - 250, width: 150, height: 20, color: '#e8a018', isGround: false }, { x: 4100, y: canvas.height - 150, width: 200, height: 20, color: '#e8a018', isGround: false }, { x: 4400, y: canvas.height - 100, width: 100, height: 20, color: '#e8a018', isGround: false }, ],
+                  coins: [ { x: 140, y: canvas.height - 110, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 290, y: canvas.height - 170, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 440, y: canvas.height - 230, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 590, y: canvas.height - 170, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 740, y: canvas.height - 110, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 1000, y: canvas.height - 110, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 1200, y: canvas.height - 190, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 1400, y: canvas.height - 270, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 1650, y: canvas.height - 150, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 1700, y: canvas.height - 150, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 1750, y: canvas.height - 150, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 1950, y: canvas.height - 210, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 2150, y: canvas.height - 130, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 2300, y: canvas.height - 50, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 2500, y: canvas.height - 150, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 2640, y: canvas.height - 210, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 2790, y: canvas.height - 150, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 2940, y: canvas.height - 210, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 3090, y: canvas.height - 150, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 3350, y: canvas.height - 130, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 3400, y: canvas.height - 130, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 3600, y: canvas.height - 210, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 3650, y: canvas.height - 210, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 3850, y: canvas.height - 280, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 3900, y: canvas.height - 280, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 4150, y: canvas.height - 180, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 4200, y: canvas.height - 180, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 4250, y: canvas.height - 180, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 4450, y: canvas.height - 130, width: COIN_SIZE, height: COIN_SIZE, collected: false }, { x: 4650, y: canvas.height - 50, width: COIN_SIZE, height: COIN_SIZE, collected: false }, ],
+                  enemies: [
+                      // Original 10
+                      { type: 'brown', x: 500, startX: 450, patrolDistance: 150, platformY: canvas.height - groundPlatformHeight }, { type: 'green', x: 1000, startX: 950, patrolDistance: 150 - ENEMY_SIZE.width, platformY: canvas.height - 80 }, { type: 'green', x: 1200, startX: 1150, patrolDistance: 150 - ENEMY_SIZE.width, platformY: canvas.height - 160 }, { type: 'brown', x: 1650, startX: 1600, patrolDistance: 200 - ENEMY_SIZE.width, platformY: canvas.height - 120 }, { type: 'green', x: 2200, startX: 2150, patrolDistance: 150, platformY: canvas.height - groundPlatformHeight }, { type: 'brown', x: 2500, startX: 2450, patrolDistance: 100 - ENEMY_SIZE.width, platformY: canvas.height - 120 }, { type: 'green', x: 2800, startX: 2750, patrolDistance: 200, platformY: canvas.height - groundPlatformHeight }, { type: 'green', x: 3350, startX: 3300, patrolDistance: 150 - ENEMY_SIZE.width, platformY: canvas.height - 100 }, { type: 'brown', x: 3600, startX: 3550, patrolDistance: 150 - ENEMY_SIZE.width, platformY: canvas.height - 180 }, { type: 'green', x: 4150, startX: 4100, patrolDistance: 200 - ENEMY_SIZE.width, platformY: canvas.height - 150 },
+                      // Added 10 more
+                      { type: 'brown', x: 150, startX: 100, patrolDistance: 80 - ENEMY_SIZE.width, platformY: canvas.height - 80 },
+                      { type: 'green', x: 300, startX: 250, patrolDistance: 80 - ENEMY_SIZE.width, platformY: canvas.height - 140 },
+                      { type: 'brown', x: 600, startX: 550, patrolDistance: 80 - ENEMY_SIZE.width, platformY: canvas.height - 140 },
+                      { type: 'green', x: 750, startX: 700, patrolDistance: 80 - ENEMY_SIZE.width, platformY: canvas.height - 80 },
+                      { type: 'brown', x: 1400, startX: 1350, patrolDistance: 150 - ENEMY_SIZE.width, platformY: canvas.height - 240 },
+                      { type: 'green', x: 2650, startX: 2600, patrolDistance: 80 - ENEMY_SIZE.width, platformY: canvas.height - 180 },
+                      { type: 'brown', x: 3100, startX: 3050, patrolDistance: 80 - ENEMY_SIZE.width, platformY: canvas.height - 120 },
+                      { type: 'green', x: 3400, startX: 3350, patrolDistance: 150, platformY: canvas.height - groundPlatformHeight },
+                      { type: 'brown', x: 3850, startX: 3800, patrolDistance: 150 - ENEMY_SIZE.width, platformY: canvas.height - 250 },
+                      { type: 'green', x: 4450, startX: 4400, patrolDistance: 100 - ENEMY_SIZE.width, platformY: canvas.height - 100 },
+                  ],
+                  mushrooms: [ { x: 1700, y: canvas.height - 50 - MUSHROOM_SIZE, width: MUSHROOM_SIZE, height: MUSHROOM_SIZE, collected: false }, ],
+                  goal: { x: LEVEL_WIDTH - GOAL_SIZE.width - 50, y: canvas.height - groundPlatformHeight - GOAL_SIZE.height }
+              },
+               // --- Level 3 (Displayed as Boss Level 1) ---
+               {
+                   levelWidth: BOSS_LEVEL_WIDTH, name: "Boss Level 1", isBossLevel: true,
+                   platforms: [ { x: 0, y: canvas.height - groundPlatformHeight, width: BOSS_LEVEL_WIDTH, height: groundPlatformHeight, color: '#555555', isGround: true }, { x: 50, y: canvas.height - 120, width: 100, height: 20, color: '#777777', isGround: false }, { x: BOSS_LEVEL_WIDTH - 150, y: canvas.height - 120, width: 100, height: 20, color: '#777777', isGround: false }, ],
+                   coins: [], enemies: [], mushrooms: [], // No mushrooms in boss level
+                   goal: null
+               }
+        ];
+
+
+        // --- Dynamically Created Game Objects ---
+        let currentPlatforms = [];
+        let currentCoins = [];
+        let currentEnemies = [];
+        let currentMushrooms = [];
+        let currentGoal = null;
+        let boss = null;
+        let currentFireballs = [];
+
+        // --- Input Handling ---
+        const keys = { left: false, right: false, up: false };
+
+        // --- Utility function to stop music safely ---
+        function stopMusicSafely() { /* ... no changes ... */ if (audioInitialized && !isMuted) { const stopTime = Tone.now() + 0.001; try { if (Tone.Transport.state === 'started') { Tone.Transport.stop(stopTime); } if (musicSequence.state === 'started') { musicSequence.stop(stopTime); } } catch (e) { console.error("Error stopping music:", e); } } }
+        // Function to initialize audio context
+        async function initAudio() { /* ... no changes ... */ if (!audioInitialized) { try { await Tone.start(); Tone.Transport.bpm.value = 120; musicSequence.loop = true; if (!isMuted) { musicSequence.start(0); Tone.Transport.start(); console.log("Music Started"); } else { console.log("Music initially muted"); } audioInitialized = true; console.log("Audio Context Started"); } catch (e) { console.error("Failed to initialize audio:", e); } } }
+        // Event listener for key down
+        function handleKeyDown(event) { /* ... no changes ... */ if (!audioInitialized) { initAudio(); } if (!gameActive && event.code === 'Space') { if (levelCompleteState) { currentLevelIndex++; resetLevel(); } else if (bossDefeated || gameOverState) { resetFullGame(); } else { resetLevel(); } return; } if (!gameActive) return; switch (event.code) { case 'ArrowLeft': case 'KeyA': keys.left = true; break; case 'ArrowRight': case 'KeyD': keys.right = true; break; case 'Space': case 'ArrowUp': case 'KeyW': keys.up = true; break; } }
+        // Event listener for key up
+        function handleKeyUp(event) { /* ... no changes ... */ switch (event.code) { case 'ArrowLeft': case 'KeyA': keys.left = false; break; case 'ArrowRight': case 'KeyD': keys.right = false; break; case 'Space': case 'ArrowUp': case 'KeyW': keys.up = false; break; } }
+        // --- Mute Button Logic ---
+        function toggleMute() { /* ... no changes ... */ if (!audioInitialized) { console.log("Audio not initialized, cannot toggle mute yet."); return; } isMuted = !isMuted; if (isMuted) { stopMusicSafely(); muteButton.textContent = "Unmute Music"; muteButton.classList.add('muted'); console.log("Music Muted"); } else { if (gameActive && Tone.Transport.state !== 'started') { Tone.Transport.start(Tone.now() + 0.001); } if (gameActive && musicSequence.state !== 'started') { musicSequence.start(0); } muteButton.textContent = "Mute Music"; muteButton.classList.remove('muted'); console.log("Music Unmuted"); } }
+        // Add event listeners
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        muteButton.addEventListener('click', toggleMute);
+
+
+        // --- Collision Detection Function ---
+        // [checkCollision - NO CHANGES]
+        function checkCollision(rect1, rect2) { if (!rect1 || !rect2 || typeof rect1.x === 'undefined' || typeof rect2.x === 'undefined' || typeof rect1.y === 'undefined' || typeof rect2.y === 'undefined' || typeof rect1.width === 'undefined' || typeof rect2.width === 'undefined' || typeof rect1.height === 'undefined' || typeof rect2.height === 'undefined') { return false; } return ( rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y ); }
+        // --- Show/Hide Message Functions ---
+        // [showMessage, hideMessage - NO CHANGES]
+        function showMessage(text) { messageBox.textContent = text; messageBox.style.display = 'block'; }
+        function hideMessage() { messageBox.style.display = 'none'; }
+        // --- Update Boss HP Bar ---
+        // [updateBossHpBar - NO CHANGES]
+        function updateBossHpBar() { if (!boss || !levels[currentLevelIndex]?.isBossLevel) { bossHpBar.style.display = 'none'; return; } if (boss.hp > 0) { bossHpBar.style.display = 'block'; const hpPercent = Math.max(0, (boss.hp / BOSS_MAX_HP) * 100); bossHpFill.style.width = `${hpPercent}%`; } else { bossHpBar.style.display = 'none'; } }
+
+        // --- Handle Player Getting Hit (Power Down or Death) ---
+        function handlePlayerHit(reason) { /* ... no changes ... */ if (player.invincibleTimer > 0) return; if (player.isBig) { console.log("Player powered down!"); player.isBig = false; player.y -= (bigPlayerHeight - playerHeight); player.height = playerHeight; player.width = playerWidth; player.invincibleTimer = INVINCIBILITY_DURATION; playSound(sounds.powerDown, 'G3', '4n'); } else { handlePlayerDeath(reason); } }
+        // --- Handle Player Death (Losing a life or Game Over) ---
+        function handlePlayerDeath(reason) { /* ... no changes ... */ if (!gameActive) return; console.log(`Player died: ${reason}`); gameActive = false; stopMusicSafely(); playerLives--; livesElement.textContent = `Lives: ${playerLives}`; playSound(sounds.playerHit, '4n'); playSound(sounds.lose, 'C3', '2n'); if (playerLives <= 0) { console.log("Game Over!"); gameOverState = true; showMessage(`GAME OVER\n${reason}\nFinal Score: ${score}\nPress Space to Restart`); } else { showMessage(`${reason}\nLives Left: ${playerLives}\nPress Space to Try Again`); } }
+
+
+        // --- Load Level Function (Loads data for a specific level index) ---
+        function loadLevelData(levelIndex) { /* ... no changes ... */ console.log(`Loading level data for index ${levelIndex}`); bossDefeated = false; levelCompleteState = false; const levelData = levels[levelIndex]; if (!levelData) { console.log("All levels completed!"); gameActive = false; showMessage(`Congratulations!\nYou Completed All Levels!\nFinal Score: ${score}\nPress Space to Play Again`); updateBossHpBar(); bossDefeated = true; stopMusicSafely(); playSound(sounds.win, ['C5', 'E5', 'G5', 'C6', 'G6'], '8n'); return false; } currentPlatforms = []; currentCoins = []; currentEnemies = []; currentMushrooms = []; currentGoal = null; boss = null; currentFireballs = []; levelData.platforms.forEach(pData => currentPlatforms.push({ ...pData })); levelData.coins.forEach(cData => currentCoins.push({ ...cData, collected: false })); if (levelData.mushrooms) { levelData.mushrooms.forEach(mData => currentMushrooms.push({ ...mData, collected: false })); } if (levelData.isBossLevel) { levelElement.textContent = `Boss Level 1`; const bossGround = currentPlatforms.find(p => p.isGround); boss = { x: BOSS_LEVEL_WIDTH / 2 - BOSS_SIZE.width / 2, y: bossGround.y - BOSS_SIZE.height, width: BOSS_SIZE.width, height: BOSS_SIZE.height, color: '#440066', velocityX: BOSS_SPEED, speed: BOSS_SPEED, hp: BOSS_MAX_HP, isVulnerable: true, flashTimer: 0, fireballCooldown: BOSS_FIRE_RATE / 2 }; updateBossHpBar(); } else { levelElement.textContent = `Level: ${levelData.name}`; bossHpBar.style.display = 'none'; levelData.enemies.forEach(eData => { const enemyY = eData.platformY - ENEMY_SIZE.height; let enemyColor = '#8b4513'; let enemySpeed = ENEMY_SPEED; if (eData.type === 'green') { enemyColor = '#008000'; enemySpeed = ENEMY_SPEED * 1.2; } const currentLvlWidth = levelData.levelWidth; const adjustedStartX = Math.min(eData.startX, currentLvlWidth - eData.patrolDistance - ENEMY_SIZE.width - 10); const adjustedPatrol = Math.min(eData.patrolDistance, currentLvlWidth - adjustedStartX - ENEMY_SIZE.width - 10); currentEnemies.push({ ...eData, x: adjustedStartX, y: enemyY, width: ENEMY_SIZE.width, height: ENEMY_SIZE.height, color: enemyColor, velocityX: (eData.startX === 550 || eData.startX === 1400 || eData.type === 'green') ? -enemySpeed : enemySpeed, speed: enemySpeed, isDefeated: false, startX: adjustedStartX, patrolDistance: adjustedPatrol }); }); if (levelData.goal) { currentGoal = { ...levelData.goal, width: GOAL_SIZE.width, height: GOAL_SIZE.height, color: '#00cc00' }; } } console.log(`Level ${levelData.name} data loaded.`); return true; }
+        // --- Reset Level Function (Restarts current level, keeps score/lives) ---
+        let gameLoopRequestId;
+        function resetLevel() { /* ... no changes ... */ console.log("Resetting current level..."); if (gameLoopRequestId) { cancelAnimationFrame(gameLoopRequestId); } if (!loadLevelData(currentLevelIndex)) { console.log("Cannot reset level, end of game reached."); return; } player.isBig = false; player.invincibleTimer = 0; player.height = playerHeight; player.width = playerWidth; player.x = START_POS.x; player.y = START_POS.y; player.velocityX = 0; player.velocityY = 0; player.isJumping = false; player.isOnGround = false; cameraX = 0; keys.left = false; keys.right = false; keys.up = false; hideMessage(); gameActive = true; gameOverState = false; levelCompleteState = false; if (audioInitialized && !isMuted && Tone.Transport.state !== 'started') { Tone.Transport.start(Tone.now() + 0.001); if (musicSequence.state !== 'started') { musicSequence.start(0); } console.log("Music restarted for level reset"); } gameLoop(); }
+        // --- Reset Full Game Function (Restarts from level 1, resets score/lives) ---
+        function resetFullGame() { /* ... no changes ... */ console.log("Resetting full game..."); score = 0; playerLives = STARTING_LIVES; currentLevelIndex = 0; scoreElement.textContent = 'Score: ' + score; livesElement.textContent = `Lives: ${playerLives}`; resetLevel(); }
+
+
+        // --- Game Update Logic (Called every frame) ---
+        function update() { /* ... no changes except collision order ... */ if (!gameActive) return; const previousPlayerY = player.y; if (player.invincibleTimer > 0) { player.invincibleTimer--; } player.velocityX = 0; if (keys.left) player.velocityX = -PLAYER_MOVE_SPEED; if (keys.right) player.velocityX = PLAYER_MOVE_SPEED; player.x += player.velocityX; const currentLevelWidth = levels[currentLevelIndex]?.isBossLevel ? BOSS_LEVEL_WIDTH : LEVEL_WIDTH; player.x = Math.max(0, Math.min(player.x, currentLevelWidth - player.width)); if (keys.up && !player.isJumping && player.isOnGround) { player.velocityY = -PLAYER_JUMP_FORCE; player.isJumping = true; player.isOnGround = false; playSound(sounds.jump, 'C5', '16n'); } player.velocityY += GRAVITY; player.y += player.velocityY; let onAnyPlatform = false; currentPlatforms.forEach(platform => { if (checkCollision(player, platform)) { const previousPlayerBottom = previousPlayerY + player.height; if (player.velocityY >= 0 && previousPlayerBottom <= platform.y + 1) { player.y = platform.y - player.height; player.velocityY = 0; player.isJumping = false; onAnyPlatform = true; } else if (player.velocityY < 0 && player.y > platform.y && !platform.isGround) { player.y = platform.y + platform.height; player.velocityY = 0; } else if (player.velocityX !== 0 && player.y + player.height > platform.y && player.y < platform.y + platform.height) { if (player.velocityX > 0 && player.x + player.width > platform.x && previousPlayerY + player.height > platform.y && previousPlayerY < platform.y + platform.height) player.x = platform.x - player.width; else if (player.velocityX < 0 && player.x < platform.x + platform.width && previousPlayerY + player.height > platform.y && previousPlayerY < platform.y + platform.height) player.x = platform.x + platform.width; } } }); player.isOnGround = onAnyPlatform; if (player.y > canvas.height + player.height * 2) { handlePlayerDeath("Fell off!"); return; } currentEnemies.forEach(enemy => { if (!enemy.isDefeated) { enemy.x += enemy.velocityX; if (enemy.velocityX > 0 && enemy.x + enemy.width >= enemy.startX + enemy.patrolDistance) { enemy.velocityX = -enemy.speed; enemy.x = enemy.startX + enemy.patrolDistance - enemy.width; } else if (enemy.velocityX < 0 && enemy.x <= enemy.startX) { enemy.velocityX = enemy.speed; enemy.x = enemy.startX; } } }); if (boss && boss.hp > 0) { boss.x += boss.velocityX; if (boss.velocityX > 0 && boss.x + boss.width >= BOSS_LEVEL_WIDTH) { boss.velocityX = -boss.speed; boss.x = BOSS_LEVEL_WIDTH - boss.width; } else if (boss.velocityX < 0 && boss.x <= 0) { boss.velocityX = boss.speed; boss.x = 0; } if (boss.flashTimer > 0) { boss.flashTimer--; if (boss.flashTimer === 0) boss.isVulnerable = true; } if (gameActive && boss.isVulnerable) { boss.fireballCooldown--; if (boss.fireballCooldown <= 0) { const fireballY = boss.y + boss.height / 2 - FIREBALL_SIZE / 2; const fireballX = boss.velocityX > 0 ? boss.x + boss.width : boss.x - FIREBALL_SIZE; const fireballVX = boss.velocityX > 0 ? FIREBALL_SPEED : -FIREBALL_SPEED; currentFireballs.push({ x: fireballX, y: fireballY, vx: fireballVX, vy: 0, width: FIREBALL_SIZE, height: FIREBALL_SIZE, color: '#FF8C00' }); boss.fireballCooldown = BOSS_FIRE_RATE; playSound(sounds.bossFire, 'G3', '8n'); } } } const groundY = canvas.height - groundPlatformHeight; for (let i = currentFireballs.length - 1; i >= 0; i--) { const fb = currentFireballs[i]; fb.vy += GRAVITY * 0.8; fb.x += fb.vx; fb.y += fb.vy; if (fb.y + fb.height >= groundY) { fb.y = groundY - fb.height; fb.vy = FIREBALL_BOUNCE_VELOCITY; } const currentCamWidth = levels[currentLevelIndex]?.isBossLevel ? BOSS_LEVEL_WIDTH : canvas.width; if (fb.x + fb.width < cameraX || fb.x > cameraX + currentCamWidth || fb.y > canvas.height + 50) { currentFireballs.splice(i, 1); } } for (let i = currentFireballs.length - 1; i >= 0; i--) { if (gameActive && checkCollision(player, currentFireballs[i])) { handlePlayerHit("Hit by Fireball!"); currentFireballs.splice(i, 1); return; } } currentCoins.forEach((coin) => { if (gameActive && coin && !coin.collected && checkCollision(player, coin)) { coin.collected = true; score += 10; playSound(sounds.coin, 'E6', '16n'); } }); currentMushrooms.forEach((mushroom, index) => { if (gameActive && mushroom && !mushroom.collected && checkCollision(player, mushroom)) { mushroom.collected = true; if (!player.isBig) { console.log("Player powered up!"); player.isBig = true; player.y -= (bigPlayerHeight - playerHeight); player.height = bigPlayerHeight; player.width = bigPlayerWidth; playSound(sounds.powerUp, 'C5', '8n'); score += MUSHROOM_SCORE; } else { score += MUSHROOM_SCORE; playSound(sounds.coin, 'G6', '16n'); } } }); currentEnemies.forEach((enemy) => { if (gameActive && enemy && !enemy.isDefeated && checkCollision(player, enemy)) { const previousPlayerBottom = previousPlayerY + player.height; const enemyTop = enemy.y; const playerIsFalling = player.velocityY > 0; if (playerIsFalling && previousPlayerBottom <= enemyTop + 5) { enemy.isDefeated = true; score += STOMP_SCORE; player.velocityY = -PLAYER_STOMP_BOUNCE; player.isJumping = true; player.isOnGround = false; playSound(sounds.stomp, 'G4', '8n'); } else { handlePlayerHit("Hit Enemy!"); return; } } }); if (!gameActive) return; if (gameActive && boss && boss.hp > 0 && checkCollision(player, boss)) { const previousPlayerBottom = previousPlayerY + player.height; const bossTop = boss.y; const playerIsFalling = player.velocityY > 0; if (playerIsFalling && previousPlayerBottom <= bossTop + 10 && boss.isVulnerable) { boss.hp--; updateBossHpBar(); player.velocityY = -PLAYER_STOMP_BOUNCE; player.isJumping = true; player.isOnGround = false; boss.isVulnerable = false; boss.flashTimer = 30; playSound(sounds.bossHit, 'C4', '4n'); if (boss.hp <= 0) { console.log("Boss Defeated!"); bossDefeated = true; gameActive = false; score += 500; showMessage(`BOSS DEFEATED!\nFinal Score: ${score}\nPress Space to Play Again`); updateBossHpBar(); stopMusicSafely(); playSound(sounds.win, ['C5', 'E5', 'G5', 'C6'], '8n'); return; } } else if (boss.isVulnerable) { handlePlayerHit("Hit Boss!"); return; } } if (!gameActive) return; if (gameActive && currentGoal && checkCollision(player, currentGoal)) { console.log(`Level ${levels[currentLevelIndex].name} Complete!`); gameActive = false; levelCompleteState = true; let nextLevelName = "Next Level"; if (currentLevelIndex + 1 < levels.length) { nextLevelName = levels[currentLevelIndex + 1].isBossLevel ? "Boss Level 1" : `Level ${levels[currentLevelIndex + 1].name}`; } else { nextLevelName = "the End!"; } const messageText = `Level ${levels[currentLevelIndex].name} Complete!\nScore: ${score}\nPress Space for ${nextLevelName}`; showMessage(messageText); stopMusicSafely(); playSound(sounds.win, ['C5', 'E5', 'G5'], '8n'); return; } if (!levels[currentLevelIndex]?.isBossLevel) { const cameraDeadzoneLeft = canvas.width / 3; const cameraDeadzoneRight = canvas.width * 2 / 3; let targetCameraX = cameraX; if (player.x < cameraX + cameraDeadzoneLeft) { targetCameraX = player.x - cameraDeadzoneLeft; } else if (player.x + player.width > cameraX + cameraDeadzoneRight) { targetCameraX = player.x + player.width - cameraDeadzoneRight; } const currentLvlWidth = levels[currentLevelIndex].levelWidth; cameraX = Math.max(0, Math.min(targetCameraX, currentLvlWidth - canvas.width)); } else { cameraX = 0; } scoreElement.textContent = 'Score: ' + score; }
+
+        // --- Drawing Functions ---
+        function drawPlayer() { /* ... no changes ... */ if (player.invincibleTimer > 0 && Math.floor(player.invincibleTimer / 4) % 2 === 0) { return; } const currentWidth = player.isBig ? bigPlayerWidth : playerWidth; const currentHeight = player.isBig ? bigPlayerHeight : playerHeight; ctx.fillStyle = player.color; ctx.fillRect(player.x, player.y, currentWidth, currentHeight); ctx.fillStyle = '#000'; ctx.fillRect(player.x + currentWidth * 0.6, player.y + currentHeight * 0.2, 5, 5); }
+        function drawMushrooms() { /* ... no changes ... */ currentMushrooms.forEach(mushroom => { if (mushroom && !mushroom.collected) { const headRadius = mushroom.width * 0.4; const stemWidth = mushroom.width * 0.3; const stemHeight = mushroom.height * 0.5; const headY = mushroom.y + mushroom.height * 0.5; const stemX = mushroom.x + (mushroom.width - stemWidth) / 2; const stemY = headY; ctx.fillStyle = '#ff0000'; ctx.beginPath(); ctx.arc(mushroom.x + mushroom.width / 2, headY, headRadius, Math.PI, 0); ctx.fill(); ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(mushroom.x + mushroom.width * 0.35, headY - headRadius * 0.3, headRadius * 0.2, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(mushroom.x + mushroom.width * 0.65, headY - headRadius * 0.3, headRadius * 0.2, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#f5f5dc'; ctx.fillRect(stemX, stemY, stemWidth, stemHeight); } }); }
+        function drawPlatforms() { /* ... no changes ... */ currentPlatforms.forEach(platform => { ctx.fillStyle = platform.color; ctx.fillRect(platform.x, platform.y, platform.width, platform.height); if (platform.color === '#e8a018') { ctx.strokeStyle = '#a1660a'; ctx.lineWidth = 2; for (let i = platform.x + 20; i < platform.x + platform.width; i += 20) { ctx.beginPath(); ctx.moveTo(i, platform.y); ctx.lineTo(i, platform.y + platform.height); ctx.stroke(); } ctx.beginPath(); ctx.moveTo(platform.x, platform.y + platform.height / 2); ctx.lineTo(platform.x + platform.width, platform.y + platform.height / 2); ctx.stroke(); } else if (platform.color === '#945c00' || platform.color === '#555555' || platform.color === '#777777') { ctx.fillStyle = 'rgba(0, 0, 0, 0.1)'; for(let i = 0; i < 20; i++) { ctx.fillRect( platform.x + Math.random() * platform.width, platform.y + Math.random() * platform.height, 3, 3 ); } } }); }
+        function drawCoins() { /* ... no changes ... */ currentCoins.forEach(coin => { if (coin && !coin.collected) { ctx.fillStyle = '#ffd700'; ctx.beginPath(); ctx.arc(coin.x + coin.width / 2, coin.y + coin.height / 2, coin.width / 2, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#e0a800'; ctx.lineWidth = 1; ctx.stroke(); } }); }
+        function drawEnemies() { /* ... no changes ... */ currentEnemies.forEach(enemy => { if (!enemy.isDefeated) { ctx.fillStyle = enemy.color; ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height); ctx.fillStyle = 'white'; ctx.fillRect(enemy.x + enemy.width * 0.2, enemy.y + enemy.height * 0.2, 5, 5); ctx.fillRect(enemy.x + enemy.width * 0.6, enemy.y + enemy.height * 0.2, 5, 5); ctx.fillStyle = 'black'; ctx.fillRect(enemy.x + enemy.width * 0.2 + 1, enemy.y + enemy.height * 0.2 + 1, 3, 3); ctx.fillRect(enemy.x + enemy.width * 0.6 + 1, enemy.y + enemy.height * 0.2 + 1, 3, 3); } }); }
+        function drawGoal() { /* ... no changes ... */ if(currentGoal && currentGoal.x) { ctx.fillStyle = currentGoal.color; const poleY = currentGoal.y; ctx.fillRect(currentGoal.x, poleY, currentGoal.width, currentGoal.height); ctx.fillStyle = '#ffdd00'; ctx.beginPath(); ctx.moveTo(currentGoal.x, poleY); ctx.lineTo(currentGoal.x - currentGoal.width * 2.5, poleY + currentGoal.height * 0.075); ctx.lineTo(currentGoal.x, poleY + currentGoal.height * 0.15); ctx.closePath(); ctx.fill(); } }
+        function drawBoss() { /* ... no changes ... */ if (boss && boss.hp > 0) { if (boss.flashTimer > 0 && Math.floor(boss.flashTimer / 3) % 2 === 0) { } else { ctx.fillStyle = boss.color; ctx.fillRect(boss.x, boss.y, boss.width, boss.height); ctx.fillStyle = 'yellow'; ctx.fillRect(boss.x + boss.width * 0.2, boss.y + boss.height * 0.3, 15, 10); ctx.fillRect(boss.x + boss.width * 0.6, boss.y + boss.height * 0.3, 15, 10); ctx.fillStyle = 'black'; ctx.fillRect(boss.x + boss.width * 0.2 + 5, boss.y + boss.height * 0.3 + 2, 5, 6); ctx.fillRect(boss.x + boss.width * 0.6 + 5, boss.y + boss.height * 0.3 + 2, 5, 6); } } }
+        function drawFireballs() { /* ... no changes ... */ currentFireballs.forEach(fb => { ctx.fillStyle = fb.color; ctx.beginPath(); ctx.arc(fb.x + fb.width / 2, fb.y + fb.height / 2, fb.width / 2, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = 'yellow'; ctx.beginPath(); ctx.arc(fb.x + fb.width / 2, fb.y + fb.height / 2, fb.width / 4, 0, Math.PI * 2); ctx.fill(); }); }
+
+
+        // --- Main Game Loop ---
+        function gameLoop() { /* ... no changes ... */ if (gameActive) { update(); } ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.save(); ctx.translate(-cameraX, 0); drawPlatforms(); drawCoins(); drawMushrooms(); drawEnemies(); drawGoal(); drawBoss(); drawFireballs(); drawPlayer(); ctx.restore(); gameLoopRequestId = requestAnimationFrame(gameLoop); }
+        // --- Start the game ---
+        window.onload = function() { /* ... no changes ... */ console.log("Starting game..."); hideMessage(); muteButton.textContent = isMuted ? "Unmute Music" : "Mute Music"; if (isMuted) muteButton.classList.add('muted'); scoreElement.textContent = 'Score: ' + score; livesElement.textContent = `Lives: ${playerLives}`; resetLevel(); };
+
+    </script>
+</body>
+</html>
