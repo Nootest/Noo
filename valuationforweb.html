@@ -2,476 +2,578 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Valuation Model Web App</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    /* Custom styles can be added here if needed, but prefer Tailwind classes */
     body {
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      background: #f0f2f5;
-      margin: 20px;
+      font-family: "Inter", sans-serif; /* Use Inter font */
     }
-    .container {
-      max-width: 900px;
-      margin: auto;
-      background: #fff;
-      padding: 30px;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-      border-radius: 8px;
+    /* Ensure input fields take full width on smaller screens */
+    .input-group label {
+        flex-basis: 150px; /* Adjust label width */
+        margin-right: 10px; /* Add some space between label and input */
     }
-    h1, h2, h3 {
-      text-align: center;
-      color: #333;
+    .input-group input, .input-group select {
+        min-width: 100px; /* Ensure inputs don't get too small */
     }
-    .section {
-      border: 1px solid #ddd;
-      padding: 20px;
-      margin-bottom: 40px;
-      border-radius: 5px;
-      background: #fafafa;
-    }
-    .input-group {
-      margin-bottom: 15px;
-      display: flex;
-      justify-content: space-between;
-      max-width: 500px;
-      margin: 10px auto;
-    }
-    label {
-      flex: 0 0 220px;
-      color: #555;
-    }
-    input[type="number"], input[type="text"], select {
-      flex: 1;
-      padding: 8px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-    button {
-      background: #007bff;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      padding: 10px 20px;
-      cursor: pointer;
-      margin: 20px auto;
-      display: block;
-    }
-    button:hover {
-      background: #0056b3;
-    }
-    .result {
-      margin-top: 20px;
-      text-align: center;
-    }
-    .result table {
-      margin: auto;
-      border-collapse: collapse;
-      width: 90%;
-      max-width: 600px;
-    }
-    .result table, .result th, .result td {
-      border: 1px solid #ccc;
-    }
-    .result th, .result td {
-      padding: 8px;
-      text-align: center;
-    }
-    .result th {
-      background: #007bff;
-      color: #fff;
+    /* Responsive adjustments */
+    @media (max-width: 640px) {
+        .input-group {
+            flex-direction: column; /* Stack label and input vertically */
+            align-items: stretch; /* Make label and input take full width */
+        }
+        .input-group label {
+            margin-bottom: 5px; /* Add space below label */
+            flex-basis: auto; /* Reset basis */
+        }
     }
   </style>
 </head>
-<body>
-<div class="container">
-  <h1>Valuation Model Web App</h1>
-  
-  <!-- DCF Model Section (Top) -->
-  <div class="section" id="dcfSection">
-    <h2>DCF Model</h2>
-    <!-- Stock Ticker Input for DCF -->
-    <div class="input-group">
-      <label for="ticker_dcf">Stock Ticker:</label>
-      <input type="text" id="ticker_dcf" placeholder="e.g., AAPL">
+<body class="bg-gray-100 p-4 md:p-8">
+<div class="container max-w-4xl mx-auto bg-white p-6 md:p-8 rounded-lg shadow-md">
+  <h1 class="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-8">Valuation Model Web App</h1>
+
+  <div class="section border border-gray-300 p-4 md:p-6 mb-8 rounded-md bg-gray-50" id="dcfSection">
+    <h2 class="text-xl md:text-2xl font-semibold text-center text-gray-700 mb-6">DCF Model</h2>
+    <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+      <label for="ticker_dcf" class="text-gray-600 font-medium">Stock Ticker:</label>
+      <input type="text" id="ticker_dcf" placeholder="e.g., AAPL" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
     </div>
-    <!-- Forecast Period Dropdown for DCF -->
-    <div class="input-group">
-      <label for="forecast_period_dcf">Forecast Period (Years):</label>
-      <select id="forecast_period_dcf">
+    <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+      <label for="forecast_period_dcf" class="text-gray-600 font-medium">Forecast Period (Years):</label>
+      <select id="forecast_period_dcf" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
         <option value="3">3 Years</option>
         <option value="5">5 Years</option>
         <option value="10" selected>10 Years</option>
       </select>
     </div>
-    <div class="input-group">
-      <label for="initial_fcf">Initial Free Cash Flow Year 0 (mil USD):</label>
-      <input type="number" id="initial_fcf" step="any" placeholder="e.g., 50">
+    <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+      <label for="initial_fcf" class="text-gray-600 font-medium">Initial Free Cash Flow Year 0 (mil USD):</label>
+      <input type="number" id="initial_fcf" step="any" placeholder="e.g., 50" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
     </div>
-    <h3>FCF Growth Rates for Years 1-10 (%)</h3>
-    <div id="growthRatesDCF">
-      <div class="input-group" id="group_dcf_growth_1">
-        <label for="dcf_growth_1">Year 1:</label>
-        <input type="number" id="dcf_growth_1" step="any" placeholder="e.g., 10">
+    <h3 class="text-lg font-semibold text-center text-gray-700 my-4">FCF Growth Rates for Years 1-10 (%)</h3>
+    <div id="growthRatesDCF" class="space-y-3 mb-4">
+      <div class="input-group flex flex-wrap items-center justify-center" id="group_dcf_growth_1">
+        <label for="dcf_growth_1" class="text-gray-600 font-medium">Year 1:</label>
+        <input type="number" id="dcf_growth_1" step="any" placeholder="e.g., 10" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
       </div>
-      <div class="input-group" id="group_dcf_growth_2">
-        <label for="dcf_growth_2">Year 2:</label>
-        <input type="number" id="dcf_growth_2" step="any">
-      </div>
-      <div class="input-group" id="group_dcf_growth_3">
-        <label for="dcf_growth_3">Year 3:</label>
-        <input type="number" id="dcf_growth_3" step="any">
-      </div>
-      <div class="input-group" id="group_dcf_growth_4">
-        <label for="dcf_growth_4">Year 4:</label>
-        <input type="number" id="dcf_growth_4" step="any">
-      </div>
-      <div class="input-group" id="group_dcf_growth_5">
-        <label for="dcf_growth_5">Year 5:</label>
-        <input type="number" id="dcf_growth_5" step="any">
-      </div>
-      <div class="input-group" id="group_dcf_growth_6">
-        <label for="dcf_growth_6">Year 6:</label>
-        <input type="number" id="dcf_growth_6" step="any">
-      </div>
-      <div class="input-group" id="group_dcf_growth_7">
-        <label for="dcf_growth_7">Year 7:</label>
-        <input type="number" id="dcf_growth_7" step="any">
-      </div>
-      <div class="input-group" id="group_dcf_growth_8">
-        <label for="dcf_growth_8">Year 8:</label>
-        <input type="number" id="dcf_growth_8" step="any">
-      </div>
-      <div class="input-group" id="group_dcf_growth_9">
-        <label for="dcf_growth_9">Year 9:</label>
-        <input type="number" id="dcf_growth_9" step="any">
-      </div>
-      <div class="input-group" id="group_dcf_growth_10">
-        <label for="dcf_growth_10">Year 10:</label>
-        <input type="number" id="dcf_growth_10" step="any">
-      </div>
+      <div class="input-group flex flex-wrap items-center justify-center" id="group_dcf_growth_2"> <label for="dcf_growth_2" class="text-gray-600 font-medium">Year 2:</label> <input type="number" id="dcf_growth_2" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+      <div class="input-group flex flex-wrap items-center justify-center" id="group_dcf_growth_3"> <label for="dcf_growth_3" class="text-gray-600 font-medium">Year 3:</label> <input type="number" id="dcf_growth_3" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+      <div class="input-group flex flex-wrap items-center justify-center" id="group_dcf_growth_4"> <label for="dcf_growth_4" class="text-gray-600 font-medium">Year 4:</label> <input type="number" id="dcf_growth_4" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+      <div class="input-group flex flex-wrap items-center justify-center" id="group_dcf_growth_5"> <label for="dcf_growth_5" class="text-gray-600 font-medium">Year 5:</label> <input type="number" id="dcf_growth_5" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+      <div class="input-group flex flex-wrap items-center justify-center" id="group_dcf_growth_6"> <label for="dcf_growth_6" class="text-gray-600 font-medium">Year 6:</label> <input type="number" id="dcf_growth_6" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+      <div class="input-group flex flex-wrap items-center justify-center" id="group_dcf_growth_7"> <label for="dcf_growth_7" class="text-gray-600 font-medium">Year 7:</label> <input type="number" id="dcf_growth_7" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+      <div class="input-group flex flex-wrap items-center justify-center" id="group_dcf_growth_8"> <label for="dcf_growth_8" class="text-gray-600 font-medium">Year 8:</label> <input type="number" id="dcf_growth_8" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+      <div class="input-group flex flex-wrap items-center justify-center" id="group_dcf_growth_9"> <label for="dcf_growth_9" class="text-gray-600 font-medium">Year 9:</label> <input type="number" id="dcf_growth_9" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+      <div class="input-group flex flex-wrap items-center justify-center" id="group_dcf_growth_10"> <label for="dcf_growth_10" class="text-gray-600 font-medium">Year 10:</label> <input type="number" id="dcf_growth_10" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
     </div>
-    <div class="input-group">
-      <label for="net_debt">Net Debt (Net Cash):</label>
-      <input type="number" id="net_debt" step="any" placeholder="e.g., 20">
+    <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+      <label for="net_debt" class="text-gray-600 font-medium">Net Debt (Net Cash) (mil USD):</label>
+      <input type="number" id="net_debt" step="any" placeholder="e.g., 20 (negative for net cash)" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
     </div>
-    <div class="input-group">
-      <label for="dcf_discount_rate">Discount Rate (%):</label>
-      <input type="number" id="dcf_discount_rate" step="any" placeholder="e.g., 10">
+    <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+      <label for="dcf_discount_rate" class="text-gray-600 font-medium">Discount Rate (%):</label>
+      <input type="number" id="dcf_discount_rate" step="any" placeholder="e.g., 10" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
     </div>
-    <div class="input-group">
-      <label for="terminal_growth_rate">Terminal Growth Rate (%):</label>
-      <input type="number" id="terminal_growth_rate" step="any" placeholder="e.g., 3">
+    <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+      <label for="terminal_growth_rate" class="text-gray-600 font-medium">Terminal Growth Rate (%):</label>
+      <input type="number" id="terminal_growth_rate" step="any" placeholder="e.g., 3" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
     </div>
-    <button onclick="calculateDCF()">Calculate DCF Valuation</button>
-    <div class="result" id="resultDCF"></div>
+    <button onclick="calculateDCF()" class="block mx-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition duration-200 ease-in-out">Calculate DCF Valuation</button>
+    <div class="result mt-6" id="resultDCF"></div>
   </div>
-  
-  <!-- Value by Multiple Section (Bottom) -->
-  <div class="section" id="multipleSection">
-    <h2>Value by Multiple</h2>
-    <!-- Stock Ticker Input -->
-    <div class="input-group">
-      <label for="ticker_multiple">Stock Ticker:</label>
-      <input type="text" id="ticker_multiple" placeholder="e.g., AAPL">
+
+  <div class="section border border-gray-300 p-4 md:p-6 mb-8 rounded-md bg-gray-50" id="multipleSection">
+    <h2 class="text-xl md:text-2xl font-semibold text-center text-gray-700 mb-6">Value by Multiple</h2>
+    <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+      <label for="ticker_multiple" class="text-gray-600 font-medium">Stock Ticker:</label>
+      <input type="text" id="ticker_multiple" placeholder="e.g., AAPL" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
     </div>
-    <div class="input-group">
-      <label for="initial_rev">Revenue Year 0 (mil USD):</label>
-      <input type="number" id="initial_rev" step="any" placeholder="e.g., 100">
+    <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+      <label for="initial_rev" class="text-gray-600 font-medium">Revenue Year 0 (mil USD):</label>
+      <input type="number" id="initial_rev" step="any" placeholder="e.g., 100" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
     </div>
-    <!-- Forecast Period Dropdown -->
-    <div class="input-group">
-      <label for="forecast_period">Forecast Period (Years):</label>
-      <select id="forecast_period">
+    <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+      <label for="forecast_period" class="text-gray-600 font-medium">Forecast Period (Years):</label>
+      <select id="forecast_period" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
         <option value="3">3 Years</option>
         <option value="5">5 Years</option>
         <option value="10" selected>10 Years</option>
       </select>
     </div>
-    <h3>Growth Rates for Years 1-10 (%)</h3>
-    <div id="growthRatesMultiple">
-      <div class="input-group" id="group_growth_1">
-        <label for="growth_1">Year 1:</label>
-        <input type="number" id="growth_1" step="any" placeholder="e.g., 10">
+    <h3 class="text-lg font-semibold text-center text-gray-700 my-4">Revenue Growth Rates for Years 1-10 (%)</h3>
+    <div id="growthRatesMultiple" class="space-y-3 mb-4">
+      <div class="input-group flex flex-wrap items-center justify-center" id="group_growth_1">
+        <label for="growth_1" class="text-gray-600 font-medium">Year 1:</label>
+        <input type="number" id="growth_1" step="any" placeholder="e.g., 10" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
       </div>
-      <div class="input-group" id="group_growth_2">
-        <label for="growth_2">Year 2:</label>
-        <input type="number" id="growth_2" step="any">
-      </div>
-      <div class="input-group" id="group_growth_3">
-        <label for="growth_3">Year 3:</label>
-        <input type="number" id="growth_3" step="any">
-      </div>
-      <div class="input-group" id="group_growth_4">
-        <label for="growth_4">Year 4:</label>
-        <input type="number" id="growth_4" step="any">
-      </div>
-      <div class="input-group" id="group_growth_5">
-        <label for="growth_5">Year 5:</label>
-        <input type="number" id="growth_5" step="any">
-      </div>
-      <div class="input-group" id="group_growth_6">
-        <label for="growth_6">Year 6:</label>
-        <input type="number" id="growth_6" step="any">
-      </div>
-      <div class="input-group" id="group_growth_7">
-        <label for="growth_7">Year 7:</label>
-        <input type="number" id="growth_7" step="any">
-      </div>
-      <div class="input-group" id="group_growth_8">
-        <label for="growth_8">Year 8:</label>
-        <input type="number" id="growth_8" step="any">
-      </div>
-      <div class="input-group" id="group_growth_9">
-        <label for="growth_9">Year 9:</label>
-        <input type="number" id="growth_9" step="any">
-      </div>
-      <div class="input-group" id="group_growth_10">
-        <label for="growth_10">Year 10:</label>
-        <input type="number" id="growth_10" step="any">
-      </div>
+       <div class="input-group flex flex-wrap items-center justify-center" id="group_growth_2"> <label for="growth_2" class="text-gray-600 font-medium">Year 2:</label> <input type="number" id="growth_2" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+      <div class="input-group flex flex-wrap items-center justify-center" id="group_growth_3"> <label for="growth_3" class="text-gray-600 font-medium">Year 3:</label> <input type="number" id="growth_3" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+      <div class="input-group flex flex-wrap items-center justify-center" id="group_growth_4"> <label for="growth_4" class="text-gray-600 font-medium">Year 4:</label> <input type="number" id="growth_4" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+      <div class="input-group flex flex-wrap items-center justify-center" id="group_growth_5"> <label for="growth_5" class="text-gray-600 font-medium">Year 5:</label> <input type="number" id="growth_5" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+      <div class="input-group flex flex-wrap items-center justify-center" id="group_growth_6"> <label for="growth_6" class="text-gray-600 font-medium">Year 6:</label> <input type="number" id="growth_6" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+      <div class="input-group flex flex-wrap items-center justify-center" id="group_growth_7"> <label for="growth_7" class="text-gray-600 font-medium">Year 7:</label> <input type="number" id="growth_7" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+      <div class="input-group flex flex-wrap items-center justify-center" id="group_growth_8"> <label for="growth_8" class="text-gray-600 font-medium">Year 8:</label> <input type="number" id="growth_8" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+      <div class="input-group flex flex-wrap items-center justify-center" id="group_growth_9"> <label for="growth_9" class="text-gray-600 font-medium">Year 9:</label> <input type="number" id="growth_9" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+      <div class="input-group flex flex-wrap items-center justify-center" id="group_growth_10"> <label for="growth_10" class="text-gray-600 font-medium">Year 10:</label> <input type="number" id="growth_10" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
     </div>
-    <div class="input-group">
-      <label for="npm">Net Profit Margin at Year <span id="npYearLabel">10</span> (%):</label>
-      <input type="number" id="npm" step="any" placeholder="e.g., 15">
+    <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+      <label for="npm" class="text-gray-600 font-medium">Net Profit Margin at Year <span id="npYearLabel">10</span> (%):</label>
+      <input type="number" id="npm" step="any" placeholder="e.g., 15" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
     </div>
-    <div class="input-group">
-      <label for="ebitda_margin">EBITDA Margin for Year <span id="ebYearLabel">10</span> (%):</label>
-      <input type="number" id="ebitda_margin" step="any" placeholder="e.g., 20">
+    <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+      <label for="ebitda_margin" class="text-gray-600 font-medium">EBITDA Margin for Year <span id="ebYearLabel">10</span> (%):</label>
+      <input type="number" id="ebitda_margin" step="any" placeholder="e.g., 20" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
     </div>
-    <div class="input-group">
-      <label for="ebitda_multiplier">EBITDA Multiplier:</label>
-      <input type="number" id="ebitda_multiplier" step="any" placeholder="e.g., 8">
+    <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+      <label for="ebitda_multiplier" class="text-gray-600 font-medium">EBITDA Multiplier:</label>
+      <input type="number" id="ebitda_multiplier" step="any" placeholder="e.g., 8" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
     </div>
-    <div class="input-group">
-      <label for="pe_multiplier">P/E Multiplier:</label>
-      <input type="number" id="pe_multiplier" step="any" placeholder="e.g., 15">
+    <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+      <label for="pe_multiplier" class="text-gray-600 font-medium">P/E Multiplier:</label>
+      <input type="number" id="pe_multiplier" step="any" placeholder="e.g., 15" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
     </div>
-    <div class="input-group">
-      <label for="discount_rate">Discount Rate (%):</label>
-      <input type="number" id="discount_rate" step="any" placeholder="e.g., 10">
+    <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+      <label for="discount_rate" class="text-gray-600 font-medium">Discount Rate (%):</label>
+      <input type="number" id="discount_rate" step="any" placeholder="e.g., 10" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
     </div>
-    <button onclick="calculateMultiple()">Calculate Multiple Valuation</button>
-    <div class="result" id="resultMultiple"></div>
+    <button onclick="calculateMultiple()" class="block mx-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition duration-200 ease-in-out">Calculate Multiple Valuation</button>
+    <div class="result mt-6" id="resultMultiple"></div>
   </div>
 </div>
 
 <script>
-// Function to move focus to the next input when Enter or NumpadEnter is pressed
-function handleKeyDown(event) {
-  if (event.key === "Enter" || event.key === "NumpadEnter") {
-    event.preventDefault();
-    const inputs = Array.from(document.querySelectorAll('input'));
-    const index = inputs.indexOf(event.target);
-    if (index > -1 && index < inputs.length - 1) {
-      inputs[index + 1].focus();
+// --- Global Constants ---
+const ALPHA_VANTAGE_API_KEY = "1C3ATJCKQPAC5CMR"; // Replace with your actual Alpha Vantage API key if needed
+
+// --- Helper Functions ---
+
+// Function to safely parse float, returning 0 if invalid
+function safeParseFloat(value, defaultValue = 0) {
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? defaultValue : parsed;
+}
+
+// Function to display error messages in result divs
+function displayError(elementId, message) {
+    const resultDiv = document.getElementById(elementId);
+    if (resultDiv) {
+        resultDiv.innerHTML = `<p class="text-red-600 text-center font-semibold">${message}</p>`;
     }
-    return false;
-  }
 }
 
-// Attach keydown listener to all input fields after page load
-window.onload = function() {
-  const inputs = document.querySelectorAll('input');
-  inputs.forEach(input => {
-    input.addEventListener('keydown', handleKeyDown);
-  });
-  
-  // When forecast period changes in Multiple section, update labels and hide/show corresponding growth input groups
-  const forecastSelect = document.getElementById('forecast_period');
-  forecastSelect.addEventListener('change', function() {
-    const period = parseInt(forecastSelect.value);
-    document.getElementById('npYearLabel').innerText = period;
-    document.getElementById('ebYearLabel').innerText = period;
-    for (let i = 1; i <= 10; i++) {
-      const group = document.getElementById('group_growth_' + i);
-      group.style.display = (i > period) ? 'none' : 'flex';
+// Function to format numbers as currency (USD millions)
+function formatMillions(value) {
+    if (typeof value !== 'number' || isNaN(value)) return "N/A";
+    return `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} mil USD`;
+}
+
+// Function to format numbers as percentage
+function formatPercent(value) {
+    if (typeof value !== 'number' || isNaN(value)) return "N/A";
+    // Check if value is a string with '%' already, if so return it
+    if (typeof value === 'string' && value.includes('%')) return value;
+    return `${value.toFixed(2)}%`;
+}
+
+// Function to fetch data from Alpha Vantage
+async function fetchAlphaVantage(url) {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Network response was not ok (status: ${response.status})`);
+        }
+        const data = await response.json();
+        // Check for API call frequency limits or errors in the response
+        if (data.Note || data['Error Message']) {
+            throw new Error(data.Note || data['Error Message'] || "Alpha Vantage API error");
+        }
+        return data;
+    } catch (error) {
+        console.error("Fetch Error:", error);
+        throw error; // Re-throw the error to be caught by the calling function
     }
-  });
-  forecastSelect.dispatchEvent(new Event('change'));
-  
-  // When forecast period changes in DCF section, hide/show corresponding growth input groups
-  const forecastSelectDCF = document.getElementById('forecast_period_dcf');
-  if (forecastSelectDCF) {
-    forecastSelectDCF.addEventListener('change', function() {
-      const period = parseInt(forecastSelectDCF.value);
-      for (let i = 1; i <= 10; i++) {
-        const group = document.getElementById('group_dcf_growth_' + i);
-        group.style.display = (i > period) ? 'none' : 'flex';
-      }
-    });
-    forecastSelectDCF.dispatchEvent(new Event('change'));
-  }
-};
-
-// Helper function to get market cap from Alpha Vantage and convert to millions
-function getMarketCap(ticker) {
-  const apiKey = "YOUR_API_KEY"; // Replace with your actual Alpha Vantage API key
-  const url = `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${ticker}&apikey=${apiKey}`;
-  return fetch(url)
-    .then(response => {
-      if (!response.ok) {
-        throw new Error("Network error");
-      }
-      return response.json();
-    })
-    .then(data => {
-      if (data && data.MarketCapitalization) {
-        return parseFloat(data.MarketCapitalization) / 1000000;
-      } else {
-        throw new Error("Market cap not found");
-      }
-    });
 }
 
-// Helper function to get stock price from Alpha Vantage
-function getStockPrice(ticker) {
-  const apiKey = "1C3ATJCKQPAC5CMR"; // Replace with your actual Alpha Vantage API key
-  const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${ticker}&apikey=${apiKey}`;
-  return fetch(url)
-    .then(response => {
-      if (!response.ok) {
-        throw new Error("Network error");
-      }
-      return response.json();
-    })
-    .then(data => {
-      if (data && data["Global Quote"] && data["Global Quote"]["05. price"]) {
-        return parseFloat(data["Global Quote"]["05. price"]);
-      } else {
-        throw new Error("Stock price not found");
-      }
-    });
+// Function to get market cap from Alpha Vantage and convert to millions
+async function getMarketCap(ticker) {
+    if (!ticker) throw new Error("Stock ticker is required.");
+    const url = `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${ticker}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+    const data = await fetchAlphaVantage(url);
+    if (data && data.MarketCapitalization && data.MarketCapitalization !== "None") {
+        const marketCap = parseFloat(data.MarketCapitalization);
+        if (isNaN(marketCap)) {
+             throw new Error(`Invalid market cap data received for ${ticker}.`);
+        }
+        return marketCap / 1000000; // Convert to millions
+    } else {
+        throw new Error(`Market cap data not found or invalid for ${ticker}. Check ticker symbol.`);
+    }
 }
+
+// Function to get stock price from Alpha Vantage
+async function getStockPrice(ticker) {
+     if (!ticker) throw new Error("Stock ticker is required.");
+    const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${ticker}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+    const data = await fetchAlphaVantage(url);
+    if (data && data["Global Quote"] && data["Global Quote"]["05. price"]) {
+         const price = parseFloat(data["Global Quote"]["05. price"]);
+         if (isNaN(price)) {
+            throw new Error(`Invalid stock price data received for ${ticker}.`);
+         }
+        return price;
+    } else {
+        throw new Error(`Stock price data not found or invalid for ${ticker}. Check ticker symbol.`);
+    }
+}
+
+
+// --- Calculation Functions ---
 
 // Function to calculate "Value by Multiple"
 async function calculateMultiple() {
-  const initial_rev = parseFloat(document.getElementById('initial_rev').value);
-  const forecastPeriod = parseInt(document.getElementById('forecast_period').value);
-  let growth_rates = [];
-  for (let i = 1; i <= forecastPeriod; i++) {
-    let rate = parseFloat(document.getElementById('growth_' + i).value);
-    growth_rates.push(rate / 100);
-  }
-  const npm = parseFloat(document.getElementById('npm').value) / 100;
-  const ebitda_margin = parseFloat(document.getElementById('ebitda_margin').value) / 100;
-  const ebitda_multiplier = parseFloat(document.getElementById('ebitda_multiplier').value);
-  const pe_multiplier = parseFloat(document.getElementById('pe_multiplier').value);
-  const discount_rate = parseFloat(document.getElementById('discount_rate').value) / 100;
-  
-  // Calculate projections over the selected forecast period
-  let revenue = [initial_rev];
-  let net_profit = [0];
-  let ebitda = [0];
-  for (let year = 1; year <= forecastPeriod; year++) {
-    const rev = revenue[year - 1] * (1 + growth_rates[year - 1]);
-    revenue.push(rev);
-    net_profit.push(rev * npm);
-    ebitda.push(rev * ebitda_margin);
-  }
-  
-  const revenue_final = revenue[forecastPeriod];
-  const valuation_ebitda = ebitda[forecastPeriod] * ebitda_multiplier;
-  const valuation_pe = net_profit[forecastPeriod] * pe_multiplier;
-  const pv_factor = Math.pow(1 + discount_rate, forecastPeriod);
-  const valuation_ebitda_pv = valuation_ebitda / pv_factor;
-  const valuation_pe_pv = valuation_pe / pv_factor;
-  
-  // Get stock ticker and current market data for Multiple section
-  const ticker = document.getElementById('ticker_multiple').value.trim();
-  let marketCap = null;
-  let stockPrice = null;
-  let capError = "";
-  if (ticker) {
+    // Clear previous results and errors
+    const resultDiv = document.getElementById('resultMultiple');
+    resultDiv.innerHTML = ''; // Clear previous results
+
     try {
-      marketCap = await getMarketCap(ticker);
-      stockPrice = await getStockPrice(ticker);
-    } catch (err) {
-      capError = err.message;
+        // --- Get Inputs ---
+        const initial_rev = safeParseFloat(document.getElementById('initial_rev').value);
+        const forecastPeriod = parseInt(document.getElementById('forecast_period').value); // Already an integer
+        const npm_percent = safeParseFloat(document.getElementById('npm').value);
+        const ebitda_margin_percent = safeParseFloat(document.getElementById('ebitda_margin').value);
+        const ebitda_multiplier = safeParseFloat(document.getElementById('ebitda_multiplier').value);
+        const pe_multiplier = safeParseFloat(document.getElementById('pe_multiplier').value);
+        const discount_rate_percent = safeParseFloat(document.getElementById('discount_rate').value);
+        const ticker = document.getElementById('ticker_multiple').value.trim().toUpperCase();
+
+        // Validate essential inputs
+        if (initial_rev <= 0 || npm_percent === 0 || ebitda_margin_percent === 0 || ebitda_multiplier <= 0 || pe_multiplier <= 0 || discount_rate_percent <= 0) {
+             throw new Error("Please enter valid positive numbers for initial revenue, margins, multipliers, and discount rate.");
+        }
+
+        let growth_rates = [];
+        for (let i = 1; i <= forecastPeriod; i++) {
+            let rate = safeParseFloat(document.getElementById('growth_' + i).value);
+            growth_rates.push(rate / 100); // Convert percentage to decimal
+        }
+
+        const npm = npm_percent / 100;
+        const ebitda_margin = ebitda_margin_percent / 100;
+        const discount_rate = discount_rate_percent / 100;
+
+        // --- Calculate Projections ---
+        let revenue = initial_rev;
+        for (let year = 0; year < forecastPeriod; year++) {
+            revenue *= (1 + growth_rates[year]);
+        }
+        const revenue_final = revenue; // Revenue at the end of the forecast period
+
+        // Calculate Net Profit and EBITDA based on final year's revenue
+        const net_profit_final = revenue_final * npm;
+        const ebitda_final = revenue_final * ebitda_margin;
+
+        // --- Calculate Valuations ---
+        const valuation_ebitda = ebitda_final * ebitda_multiplier; // Future valuation
+        const valuation_pe = net_profit_final * pe_multiplier; // Future valuation
+
+        // --- Calculate Present Values ---
+        const pv_factor = Math.pow(1 + discount_rate, forecastPeriod);
+        if (pv_factor === 0) throw new Error("Calculation error: Present value factor is zero."); // Avoid division by zero
+
+        const valuation_ebitda_pv = valuation_ebitda / pv_factor; // Present value of EBITDA valuation
+        const valuation_pe_pv = valuation_pe / pv_factor; // Present value of P/E valuation
+
+        // --- Get Market Data (Optional) ---
+        let marketCap = null;
+        let stockPrice = null;
+        let marketDataError = "";
+        if (ticker) {
+            try {
+                // Use Promise.all to fetch concurrently
+                [marketCap, stockPrice] = await Promise.all([
+                    getMarketCap(ticker),
+                    getStockPrice(ticker)
+                ]);
+            } catch (err) {
+                console.error("Error fetching market data:", err);
+                marketDataError = `Could not fetch market data for ${ticker}: ${err.message}. Calculations based on inputs only.`;
+                // Don't throw here, allow calculation to proceed without market data
+            }
+        } else {
+            marketDataError = "Enter a stock ticker to compare valuation with current market data.";
+        }
+
+        // --- Calculate Upside/Downside (using PRESENT VALUE) ---
+        let upsideEBITDA = "N/A";
+        let upsidePE = "N/A";
+        if (marketCap !== null && marketCap > 0) {
+            // *** CORRECTED FORMULA: Use valuation_ebitda_pv and valuation_pe_pv ***
+            upsideEBITDA = formatPercent(((valuation_ebitda_pv - marketCap) / marketCap) * 100);
+            upsidePE = formatPercent(((valuation_pe_pv - marketCap) / marketCap) * 100);
+        } else if (marketCap === 0) {
+             marketDataError = "Market cap reported as zero, cannot calculate upside/downside.";
+        }
+
+
+        // --- Display Results ---
+        resultDiv.innerHTML = `
+        <div class="overflow-x-auto">
+          <table class="w-full max-w-lg mx-auto border-collapse border border-gray-300 bg-white rounded-lg shadow">
+            <thead>
+              <tr><th colspan="2" class="bg-blue-600 text-white p-3 text-lg font-semibold rounded-t-lg">Value by Multiple (${forecastPeriod} Year Forecast)</th></tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Revenue at Year ${forecastPeriod}</td><td class="p-3 text-right font-medium">${formatMillions(revenue_final)}</td></tr>
+              <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">EBITDA at Year ${forecastPeriod}</td><td class="p-3 text-right font-medium">${formatMillions(ebitda_final)}</td></tr>
+              <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Net Profit at Year ${forecastPeriod}</td><td class="p-3 text-right font-medium">${formatMillions(net_profit_final)}</td></tr>
+              <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Future Valuation (EBITDA-based)</td><td class="p-3 text-right font-medium">${formatMillions(valuation_ebitda)}</td></tr>
+              <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Future Valuation (P/E-based)</td><td class="p-3 text-right font-medium">${formatMillions(valuation_pe)}</td></tr>
+              <tr class="border-b border-gray-200 bg-gray-100"><td class="p-3 text-gray-800 font-semibold">Present Value (EBITDA-based)</td><td class="p-3 text-right font-bold text-blue-700">${formatMillions(valuation_ebitda_pv)}</td></tr>
+              <tr class="border-b border-gray-200 bg-gray-100"><td class="p-3 text-gray-800 font-semibold">Present Value (P/E-based)</td><td class="p-3 text-right font-bold text-blue-700">${formatMillions(valuation_pe_pv)}</td></tr>
+              ${ marketDataError ? `<tr><td colspan="2" class="p-3 text-center text-yellow-700 bg-yellow-100 border-t border-gray-300">${marketDataError}</td></tr>` : ''}
+              ${ (marketCap !== null && stockPrice !== null) ? `
+              <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Current Stock Price (${ticker})</td><td class="p-3 text-right font-medium">$${stockPrice.toFixed(2)}</td></tr>
+              <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Current Market Cap (${ticker})</td><td class="p-3 text-right font-medium">${formatMillions(marketCap)}</td></tr>
+              <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Upside/Downside (vs PV EBITDA)</td><td class="p-3 text-right font-semibold ${parseFloat(upsideEBITDA) >= 0 ? 'text-green-600' : 'text-red-600'}">${upsideEBITDA}</td></tr>
+              <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Upside/Downside (vs PV P/E)</td><td class="p-3 text-right font-semibold ${parseFloat(upsidePE) >= 0 ? 'text-green-600' : 'text-red-600'}">${upsidePE}</td></tr>
+              ` : ''}
+            </tbody>
+          </table>
+          </div>
+        `;
+
+    } catch (error) {
+        console.error("Calculation Error (Multiple):", error);
+        displayError('resultMultiple', `Error: ${error.message}`);
     }
-  }
-  
-  let upsideEBITDA = marketCap ? (((valuation_ebitda - marketCap) / marketCap) * 100).toFixed(2) : "N/A";
-  let upsidePE = marketCap ? (((valuation_pe - marketCap) / marketCap) * 100).toFixed(2) : "N/A";
-  
-  document.getElementById('resultMultiple').innerHTML = `
-    <table>
-      <tr><th colspan="2">Value by Multiple (${forecastPeriod} Year Forecast)</th></tr>
-      <tr><td>Revenue at Year ${forecastPeriod}</td><td>${revenue_final.toFixed(2)} mil USD</td></tr>
-      <tr><td>EBITDA-based Valuation</td><td>${valuation_ebitda.toFixed(2)} mil USD</td></tr>
-      <tr><td>P/E-based Valuation</td><td>${valuation_pe.toFixed(2)} mil USD</td></tr>
-      <tr><td>Present Value (EBITDA-based)</td><td>${valuation_ebitda_pv.toFixed(2)} mil USD</td></tr>
-      <tr><td>Present Value (P/E-based)</td><td>${valuation_pe_pv.toFixed(2)} mil USD</td></tr>
-      ${ marketCap ? `
-      <tr><td>Current Stock Price</td><td>$${stockPrice.toFixed(2)}</td></tr>
-      <tr><td>Current Market Cap</td><td>$${marketCap.toLocaleString()} mil USD</td></tr>
-      <tr><td>Upside/Downside (EBITDA)</td><td>${upsideEBITDA}%</td></tr>
-      <tr><td>Upside/Downside (P/E)</td><td>${upsidePE}%</td></tr>
-      ` : capError ? `<tr><td colspan="2">Error: ${capError}</td></tr>` : `<tr><td colspan="2">No ticker provided for market cap comparison.</td></tr>`}
-    </table>
-  `;
 }
+
 
 // Function to calculate DCF Model
 async function calculateDCF() {
-  const initial_fcf = parseFloat(document.getElementById('initial_fcf').value);
-  const forecastPeriodDCF = parseInt(document.getElementById('forecast_period_dcf').value);
-  let growth_rates = [];
-  for (let i = 1; i <= forecastPeriodDCF; i++) {
-    let rate = parseFloat(document.getElementById('dcf_growth_' + i).value);
-    growth_rates.push(rate / 100);
-  }
-  const discount_rate = parseFloat(document.getElementById('dcf_discount_rate').value) / 100;
-  const terminal_growth_rate = parseFloat(document.getElementById('terminal_growth_rate').value) / 100;
-  const net_debt = parseFloat(document.getElementById('net_debt').value) || 0;
-  
-  let period = forecastPeriodDCF;
-  let fcf = [initial_fcf];
-  for (let year = 1; year <= period; year++) {
-    fcf.push(fcf[year - 1] * (1 + growth_rates[year - 1]));
-  }
-  
-  let discounted_fcf = [];
-  for (let year = 1; year <= period; year++) {
-    discounted_fcf.push(fcf[year] / Math.pow(1 + discount_rate, year));
-  }
-  const total_discounted_fcf = discounted_fcf.reduce((a, b) => a + b, 0);
-  
-  const terminal_value = fcf[period] * (1 + terminal_growth_rate) / (discount_rate - terminal_growth_rate);
-  const terminal_value_pv = terminal_value / Math.pow(1 + discount_rate, period);
-  const dcf_valuation_before_debt = total_discounted_fcf + terminal_value_pv;
-  const final_dcf_valuation = dcf_valuation_before_debt - net_debt;
-  
-  // Get stock ticker from DCF section and current market data
-  const ticker = document.getElementById('ticker_dcf').value.trim();
-  let marketCap = null;
-  let stockPrice = null;
-  let capError = "";
-  if (ticker) {
+    // Clear previous results and errors
+    const resultDiv = document.getElementById('resultDCF');
+    resultDiv.innerHTML = ''; // Clear previous results
+
     try {
-      marketCap = await getMarketCap(ticker);
-      stockPrice = await getStockPrice(ticker);
-    } catch (err) {
-      capError = err.message;
+        // --- Get Inputs ---
+        const initial_fcf = safeParseFloat(document.getElementById('initial_fcf').value);
+        const forecastPeriodDCF = parseInt(document.getElementById('forecast_period_dcf').value);
+        const discount_rate_percent = safeParseFloat(document.getElementById('dcf_discount_rate').value);
+        const terminal_growth_rate_percent = safeParseFloat(document.getElementById('terminal_growth_rate').value);
+        const net_debt = safeParseFloat(document.getElementById('net_debt').value); // Can be negative for net cash
+        const ticker = document.getElementById('ticker_dcf').value.trim().toUpperCase();
+
+        // Validate essential inputs
+        if (initial_fcf === 0 || discount_rate_percent <= 0) {
+             throw new Error("Please enter a valid Initial FCF and a positive Discount Rate.");
+        }
+         if (discount_rate_percent <= terminal_growth_rate_percent) {
+            throw new Error("Discount Rate must be greater than Terminal Growth Rate for Terminal Value calculation.");
+        }
+
+
+        let growth_rates = [];
+        for (let i = 1; i <= forecastPeriodDCF; i++) {
+            let rate = safeParseFloat(document.getElementById('dcf_growth_' + i).value);
+            growth_rates.push(rate / 100); // Convert percentage to decimal
+        }
+
+        const discount_rate = discount_rate_percent / 100;
+        const terminal_growth_rate = terminal_growth_rate_percent / 100;
+
+        // --- Calculate Projected FCFs ---
+        let fcf = [initial_fcf]; // fcf[0] is year 0 FCF
+        for (let year = 0; year < forecastPeriodDCF; year++) {
+            // Calculate FCF for year 'year + 1' based on FCF of year 'year'
+            fcf.push(fcf[year] * (1 + growth_rates[year]));
+        }
+        // fcf array now has length forecastPeriodDCF + 1 (indices 0 to forecastPeriodDCF)
+        // fcf[1] is Year 1 FCF, ..., fcf[forecastPeriodDCF] is Year N FCF
+
+        // --- Calculate Discounted FCFs ---
+        let discounted_fcf_sum = 0;
+        for (let year = 1; year <= forecastPeriodDCF; year++) {
+            const pv_factor = Math.pow(1 + discount_rate, year);
+             if (pv_factor === 0) throw new Error(`Calculation error: Present value factor is zero for year ${year}.`);
+            discounted_fcf_sum += fcf[year] / pv_factor;
+        }
+
+        // --- Calculate Terminal Value ---
+        const terminal_value_numerator = fcf[forecastPeriodDCF] * (1 + terminal_growth_rate);
+        const terminal_value_denominator = discount_rate - terminal_growth_rate;
+         if (terminal_value_denominator === 0) throw new Error("Calculation error: Terminal value denominator is zero.");
+
+        const terminal_value = terminal_value_numerator / terminal_value_denominator;
+
+        // --- Calculate Present Value of Terminal Value ---
+        const terminal_value_pv_factor = Math.pow(1 + discount_rate, forecastPeriodDCF);
+        if (terminal_value_pv_factor === 0) throw new Error("Calculation error: Terminal value PV factor is zero.");
+        const terminal_value_pv = terminal_value / terminal_value_pv_factor;
+
+        // --- Calculate Final DCF Valuation ---
+        const dcf_valuation_before_debt = discounted_fcf_sum + terminal_value_pv;
+        const final_dcf_valuation = dcf_valuation_before_debt - net_debt; // Subtract net debt (add net cash)
+
+        // --- Get Market Data (Optional) ---
+        let marketCap = null;
+        let stockPrice = null;
+        let marketDataError = "";
+         if (ticker) {
+            try {
+                 // Use Promise.all to fetch concurrently
+                [marketCap, stockPrice] = await Promise.all([
+                    getMarketCap(ticker),
+                    getStockPrice(ticker)
+                ]);
+            } catch (err) {
+                 console.error("Error fetching market data:", err);
+                 marketDataError = `Could not fetch market data for ${ticker}: ${err.message}. Calculations based on inputs only.`;
+                 // Don't throw here, allow calculation to proceed without market data
+            }
+        } else {
+            marketDataError = "Enter a stock ticker to compare valuation with current market data.";
+        }
+
+
+        // --- Calculate Upside/Downside ---
+         let upsideDCF = "N/A";
+        if (marketCap !== null && marketCap > 0) {
+            upsideDCF = formatPercent(((final_dcf_valuation - marketCap) / marketCap) * 100);
+        } else if (marketCap === 0) {
+             marketDataError = "Market cap reported as zero, cannot calculate upside/downside.";
+        }
+
+
+        // --- Display Results ---
+        resultDiv.innerHTML = `
+         <div class="overflow-x-auto">
+          <table class="w-full max-w-lg mx-auto border-collapse border border-gray-300 bg-white rounded-lg shadow">
+             <thead>
+              <tr><th colspan="2" class="bg-blue-600 text-white p-3 text-lg font-semibold rounded-t-lg">DCF Model (${forecastPeriodDCF} Year Forecast)</th></tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Sum of Discounted FCF (Years 1-${forecastPeriodDCF})</td><td class="p-3 text-right font-medium">${formatMillions(discounted_fcf_sum)}</td></tr>
+              <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Present Value of Terminal Value</td><td class="p-3 text-right font-medium">${formatMillions(terminal_value_pv)}</td></tr>
+              <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Enterprise Value (DCF)</td><td class="p-3 text-right font-medium">${formatMillions(dcf_valuation_before_debt)}</td></tr>
+              <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Less: Net Debt (Add: Net Cash)</td><td class="p-3 text-right font-medium">${formatMillions(net_debt)}</td></tr>
+              <tr class="border-b border-gray-200 bg-gray-100"><td class="p-3 text-gray-800 font-semibold">Equity Value (Final DCF Valuation)</td><td class="p-3 text-right font-bold text-blue-700">${formatMillions(final_dcf_valuation)}</td></tr>
+               ${ marketDataError ? `<tr><td colspan="2" class="p-3 text-center text-yellow-700 bg-yellow-100 border-t border-gray-300">${marketDataError}</td></tr>` : ''}
+              ${ (marketCap !== null && stockPrice !== null) ? `
+              <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Current Stock Price (${ticker})</td><td class="p-3 text-right font-medium">$${stockPrice.toFixed(2)}</td></tr>
+              <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Current Market Cap (${ticker})</td><td class="p-3 text-right font-medium">${formatMillions(marketCap)}</td></tr>
+              <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Upside/Downside (vs Equity Value)</td><td class="p-3 text-right font-semibold ${parseFloat(upsideDCF) >= 0 ? 'text-green-600' : 'text-red-600'}">${upsideDCF}</td></tr>
+               ` : ''}
+            </tbody>
+          </table>
+          </div>
+        `;
+
+    } catch (error) {
+        console.error("Calculation Error (DCF):", error);
+        displayError('resultDCF', `Error: ${error.message}`);
     }
-  }
-  
-  let upsideDCF = marketCap ? (((final_dcf_valuation - marketCap) / marketCap) * 100).toFixed(2) : "N/A";
-  
-  document.getElementById('resultDCF').innerHTML = `
-    <table>
-      <tr><th colspan="2">DCF Model (${period} Year Forecast)</th></tr>
-      <tr><td>Total Discounted FCF</td><td>${total_discounted_fcf.toFixed(2)} mil USD</td></tr>
-      <tr><td>Terminal Value (PV)</td><td>${terminal_value_pv.toFixed(2)} mil USD</td></tr>
-      <tr><td>DCF Valuation before Net Debt</td><td>${dcf_valuation_before_debt.toFixed(2)} mil USD</td></tr>
-      <tr><td>Net Debt (Net Cash)</td><td>${net_debt.toFixed(2)} mil USD</td></tr>
-      <tr><th>Final DCF Valuation</th><th>${final_dcf_valuation.toFixed(2)} mil USD</th></tr>
-      ${ marketCap ? `
-      <tr><td>Current Stock Price</td><td>$${stockPrice.toFixed(2)}</td></tr>
-      <tr><td>Current Market Cap</td><td>$${marketCap.toLocaleString()} mil USD</td></tr>
-      <tr><td>Upside/Downside (DCF)</td><td>${upsideDCF}%</td></tr>
-      ` : capError ? `<tr><td colspan="2">Error: ${capError}</td></tr>` : `<tr><td colspan="2">No ticker provided for market cap comparison.</td></tr>`}
-    </table>
-  `;
 }
+
+
+// --- Event Listeners and Initialization ---
+
+// Function to handle dynamic display of growth rate inputs based on forecast period
+function setupForecastPeriodListener(selectId, growthGroupNamePrefix, labelSpanIds = []) {
+    const forecastSelect = document.getElementById(selectId);
+    if (!forecastSelect) return; // Exit if the select element doesn't exist
+
+    const updateVisibility = () => {
+        const period = parseInt(forecastSelect.value);
+
+        // Update labels if span IDs are provided
+        labelSpanIds.forEach(spanId => {
+            const labelSpan = document.getElementById(spanId);
+            if (labelSpan) {
+                labelSpan.innerText = period;
+            }
+        });
+
+        // Show/hide growth rate input groups
+        for (let i = 1; i <= 10; i++) { // Assuming max 10 years
+            const group = document.getElementById(`${growthGroupNamePrefix}${i}`);
+            if (group) {
+                group.style.display = (i <= period) ? 'flex' : 'none'; // Use flex for alignment
+            }
+        }
+    };
+
+    forecastSelect.addEventListener('change', updateVisibility);
+    updateVisibility(); // Initial call to set visibility based on default selection
+}
+
+
+// Function to move focus to the next input when Enter or NumpadEnter is pressed
+function handleKeyDown(event) {
+    if (event.key === "Enter" || event.key === "NumpadEnter") {
+        event.preventDefault(); // Prevent form submission or default behavior
+
+        // Find all visible input/select elements within the same section (or container)
+        const currentElement = event.target;
+        const section = currentElement.closest('.section') || document.body; // Find parent section or use body
+        const focusableElements = Array.from(
+            section.querySelectorAll('input:not([type="hidden"]):not(:disabled), select:not(:disabled), button:not(:disabled)')
+        ).filter(el => {
+            // Check if the element is visible
+            return !!( el.offsetWidth || el.offsetHeight || el.getClientRects().length );
+        });
+
+
+        const currentIndex = focusableElements.indexOf(currentElement);
+
+        if (currentIndex > -1 && currentIndex < focusableElements.length - 1) {
+            // Focus the next element
+            focusableElements[currentIndex + 1].focus();
+            // Select text if it's an input field for easier editing
+            if (focusableElements[currentIndex + 1].select) {
+                 focusableElements[currentIndex + 1].select();
+            }
+
+        } else if (currentIndex === focusableElements.length - 1) {
+             // Optional: If it's the last element, maybe focus the button or wrap around?
+             // For now, just lose focus or focus the button if it exists
+             const button = section.querySelector('button');
+             if(button) button.focus();
+        }
+        return false; // Stop further event propagation
+    }
+}
+
+
+// Attach listeners after the DOM is fully loaded
+window.addEventListener('DOMContentLoaded', () => {
+    // Attach keydown listener to all relevant input/select fields
+    const inputsAndSelects = document.querySelectorAll('input, select');
+    inputsAndSelects.forEach(element => {
+        element.addEventListener('keydown', handleKeyDown);
+    });
+
+    // Setup listeners for forecast period changes
+    setupForecastPeriodListener('forecast_period', 'group_growth_', ['npYearLabel', 'ebYearLabel']);
+    setupForecastPeriodListener('forecast_period_dcf', 'group_dcf_growth_');
+
+     // Add basic input validation feedback (optional, but good UX)
+    const numericInputs = document.querySelectorAll('input[type="number"]');
+    numericInputs.forEach(input => {
+        input.addEventListener('input', () => {
+            if (input.validity.badInput || (input.value !== '' && isNaN(parseFloat(input.value)))) {
+                input.classList.add('border-red-500'); // Add red border for invalid input
+            } else {
+                input.classList.remove('border-red-500');
+            }
+        });
+    });
+});
+
+
 </script>
 </body>
 </html>
