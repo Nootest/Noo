@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Valuation Model Web App</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Custom styles can be added here if needed, but prefer Tailwind classes */
+    body {
+      font-family: "Inter", sans-serif; /* Use Inter font */
+    }
+    /* Ensure input fields take full width on smaller screens */
+    .input-group label {
+        flex-basis: 150px; /* Adjust label width */
+        margin-right: 10px; /* Add some space between label and input */
+        min-width: 150px; /* Prevent label shrinking too much */
+    }
+    .input-group input, .input-group select {
+        min-width: 100px; /* Ensure inputs don't get too small */
+    }
+    /* Responsive adjustments */
+    @media (max-width: 640px) {
+        .input-group {
+            flex-direction: column; /* Stack label and input vertically */
+            align-items: stretch; /* Make label and input take full width */
+        }
+        .input-group label {
+            margin-bottom: 5px; /* Add space below label */
+            flex-basis: auto; /* Reset basis */
+            min-width: auto; /* Reset min-width */
+        }
+    }
+    /* Style for history table */
+    #historyTable th, #historyTable td {
+        padding: 8px 12px;
+        border: 1px solid #e2e8f0; /* gray-200 */
+        text-align: left;
+        font-size: 0.875rem; /* text-sm */
+        white-space: nowrap; /* Prevent text wrapping */
+    }
+    #historyTable th {
+        background-color: #f1f5f9; /* slate-100 */
+        font-weight: 600; /* font-semibold */
+        position: sticky; /* Keep headers visible on scroll */
+        top: 0;
+        z-index: 10;
+    }
+     #historyTableContainer {
+        max-height: 600px; /* Limit height and make scrollable */
+        overflow-y: auto;
+        overflow-x: auto; /* Allow horizontal scroll for wide table */
+     }
+  </style>
+</head>
+<body class="bg-gray-100 p-4 md:p-8">
+<div class="container max-w-7xl mx-auto bg-white p-6 md:p-8 rounded-lg shadow-md">
+  <h1 class="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-8">Valuation Model Web App</h1>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+
+    <div class="section border border-gray-300 p-4 md:p-6 rounded-md bg-gray-50" id="dcfSection">
+      <h2 class="text-xl md:text-2xl font-semibold text-center text-gray-700 mb-6">DCF Model</h2>
+      <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+        <label for="ticker_dcf" class="text-gray-600 font-medium">Stock Ticker:</label>
+        <input type="text" id="ticker_dcf" placeholder="e.g., AAPL" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+        <label for="forecast_period_dcf" class="text-gray-600 font-medium">Forecast Period (Years):</label>
+        <select id="forecast_period_dcf" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+          <option value="3">3 Years</option>
+          <option value="5">5 Years</option>
+          <option value="10" selected>10 Years</option>
+        </select>
+      </div>
+      <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+        <label for="initial_fcf" class="text-gray-600 font-medium">Initial FCF Year 0 (mil):</label>
+        <input type="number" id="initial_fcf" step="any" placeholder="e.g., 50" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <h3 class="text-lg font-semibold text-center text-gray-700 my-4">FCF Growth Rates (%)</h3>
+      <div id="growthRatesDCF" class="space-y-3 mb-4">
+        <div class="input-group flex flex-wrap items-center justify-center" id="group_dcf_growth_1"> <label for="dcf_growth_1" class="text-gray-600 font-medium">Year 1:</label> <input type="number" id="dcf_growth_1" step="any" placeholder="e.g., 10" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+        <div class="input-group flex flex-wrap items-center justify-center" id="group_dcf_growth_2"> <label for="dcf_growth_2" class="text-gray-600 font-medium">Year 2:</label> <input type="number" id="dcf_growth_2" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+        <div class="input-group flex flex-wrap items-center justify-center" id="group_dcf_growth_3"> <label for="dcf_growth_3" class="text-gray-600 font-medium">Year 3:</label> <input type="number" id="dcf_growth_3" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+        <div class="input-group flex flex-wrap items-center justify-center" id="group_dcf_growth_4"> <label for="dcf_growth_4" class="text-gray-600 font-medium">Year 4:</label> <input type="number" id="dcf_growth_4" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+        <div class="input-group flex flex-wrap items-center justify-center" id="group_dcf_growth_5"> <label for="dcf_growth_5" class="text-gray-600 font-medium">Year 5:</label> <input type="number" id="dcf_growth_5" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+        <div class="input-group flex flex-wrap items-center justify-center" id="group_dcf_growth_6"> <label for="dcf_growth_6" class="text-gray-600 font-medium">Year 6:</label> <input type="number" id="dcf_growth_6" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+        <div class="input-group flex flex-wrap items-center justify-center" id="group_dcf_growth_7"> <label for="dcf_growth_7" class="text-gray-600 font-medium">Year 7:</label> <input type="number" id="dcf_growth_7" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+        <div class="input-group flex flex-wrap items-center justify-center" id="group_dcf_growth_8"> <label for="dcf_growth_8" class="text-gray-600 font-medium">Year 8:</label> <input type="number" id="dcf_growth_8" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+        <div class="input-group flex flex-wrap items-center justify-center" id="group_dcf_growth_9"> <label for="dcf_growth_9" class="text-gray-600 font-medium">Year 9:</label> <input type="number" id="dcf_growth_9" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+        <div class="input-group flex flex-wrap items-center justify-center" id="group_dcf_growth_10"> <label for="dcf_growth_10" class="text-gray-600 font-medium">Year 10:</label> <input type="number" id="dcf_growth_10" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+      </div>
+      <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+        <label for="net_debt" class="text-gray-600 font-medium">Net Debt/(Cash) (mil):</label>
+        <input type="number" id="net_debt" step="any" placeholder="e.g., 20 (negative for cash)" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+        <label for="dcf_discount_rate" class="text-gray-600 font-medium">Discount Rate (%):</label>
+        <input type="number" id="dcf_discount_rate" step="any" placeholder="e.g., 10" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+        <label for="terminal_growth_rate" class="text-gray-600 font-medium">Terminal Growth (%):</label>
+        <input type="number" id="terminal_growth_rate" step="any" placeholder="e.g., 3" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <button onclick="calculateDCF()" class="block w-full md:w-auto mx-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition duration-200 ease-in-out">Calculate DCF Valuation</button>
+      <div class="result mt-6" id="resultDCF"></div>
+    </div>
+
+    <div class="section border border-gray-300 p-4 md:p-6 rounded-md bg-gray-50" id="multipleSection">
+      <h2 class="text-xl md:text-2xl font-semibold text-center text-gray-700 mb-6">Value by Multiple</h2>
+      <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+        <label for="ticker_multiple" class="text-gray-600 font-medium">Stock Ticker:</label>
+        <input type="text" id="ticker_multiple" placeholder="e.g., AAPL" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+        <label for="initial_rev" class="text-gray-600 font-medium">Revenue Year 0 (mil):</label>
+        <input type="number" id="initial_rev" step="any" placeholder="e.g., 100" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+        <label for="forecast_period" class="text-gray-600 font-medium">Forecast Period (Years):</label>
+        <select id="forecast_period" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+          <option value="3">3 Years</option>
+          <option value="5">5 Years</option>
+          <option value="10" selected>10 Years</option>
+        </select>
+      </div>
+      <h3 class="text-lg font-semibold text-center text-gray-700 my-4">Revenue Growth Rates (%)</h3>
+      <div id="growthRatesMultiple" class="space-y-3 mb-4">
+         <div class="input-group flex flex-wrap items-center justify-center" id="group_growth_1"> <label for="growth_1" class="text-gray-600 font-medium">Year 1:</label> <input type="number" id="growth_1" step="any" placeholder="e.g., 10" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+         <div class="input-group flex flex-wrap items-center justify-center" id="group_growth_2"> <label for="growth_2" class="text-gray-600 font-medium">Year 2:</label> <input type="number" id="growth_2" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+         <div class="input-group flex flex-wrap items-center justify-center" id="group_growth_3"> <label for="growth_3" class="text-gray-600 font-medium">Year 3:</label> <input type="number" id="growth_3" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+         <div class="input-group flex flex-wrap items-center justify-center" id="group_growth_4"> <label for="growth_4" class="text-gray-600 font-medium">Year 4:</label> <input type="number" id="growth_4" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+         <div class="input-group flex flex-wrap items-center justify-center" id="group_growth_5"> <label for="growth_5" class="text-gray-600 font-medium">Year 5:</label> <input type="number" id="growth_5" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+         <div class="input-group flex flex-wrap items-center justify-center" id="group_growth_6"> <label for="growth_6" class="text-gray-600 font-medium">Year 6:</label> <input type="number" id="growth_6" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+         <div class="input-group flex flex-wrap items-center justify-center" id="group_growth_7"> <label for="growth_7" class="text-gray-600 font-medium">Year 7:</label> <input type="number" id="growth_7" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+         <div class="input-group flex flex-wrap items-center justify-center" id="group_growth_8"> <label for="growth_8" class="text-gray-600 font-medium">Year 8:</label> <input type="number" id="growth_8" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+         <div class="input-group flex flex-wrap items-center justify-center" id="group_growth_9"> <label for="growth_9" class="text-gray-600 font-medium">Year 9:</label> <input type="number" id="growth_9" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+         <div class="input-group flex flex-wrap items-center justify-center" id="group_growth_10"> <label for="growth_10" class="text-gray-600 font-medium">Year 10:</label> <input type="number" id="growth_10" step="any" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> </div>
+      </div>
+      <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+        <label for="npm" class="text-gray-600 font-medium">NPM Year <span id="npYearLabel">10</span> (%):</label>
+        <input type="number" id="npm" step="any" placeholder="e.g., 15" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+        <label for="ebitda_margin" class="text-gray-600 font-medium">EBITDA Margin Year <span id="ebYearLabel">10</span> (%):</label>
+        <input type="number" id="ebitda_margin" step="any" placeholder="e.g., 20" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+        <label for="ebitda_multiplier" class="text-gray-600 font-medium">EBITDA Multiplier:</label>
+        <input type="number" id="ebitda_multiplier" step="any" placeholder="e.g., 8" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+        <label for="pe_multiplier" class="text-gray-600 font-medium">P/E Multiplier:</label>
+        <input type="number" id="pe_multiplier" step="any" placeholder="e.g., 15" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div class="input-group mb-4 flex flex-wrap items-center justify-center">
+        <label for="discount_rate" class="text-gray-600 font-medium">Discount Rate (%):</label>
+        <input type="number" id="discount_rate" step="any" placeholder="e.g., 10" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <button onclick="calculateMultiple()" class="block w-full md:w-auto mx-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition duration-200 ease-in-out">Calculate Multiple Valuation</button>
+      <div class="result mt-6" id="resultMultiple"></div>
+    </div>
+
+  </div> <div class="section border border-gray-300 p-4 md:p-6 rounded-md bg-gray-50 mt-12" id="historySection">
+      <div class="flex justify-between items-center mb-6 flex-wrap">
+          <h2 class="text-xl md:text-2xl font-semibold text-gray-700">Calculation History (Last 100)</h2>
+          <div>
+              <button onclick="exportHistoryToCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition duration-200 ease-in-out mr-2 text-sm">Export CSV</button>
+              <button onclick="clearHistory()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md transition duration-200 ease-in-out text-sm">Clear History</button>
+          </div>
+      </div>
+      <div id="historyTableContainer">
+          <p id="noHistoryMessage" class="text-center text-gray-500">No calculations saved yet.</p>
+      </div>
+  </div>
+
+</div> <script>
+// --- Global Constants ---
+const ALPHA_VANTAGE_API_KEY = "1C3ATJCKQPAC5CMR"; // Replace with your actual Alpha Vantage API key if needed
+const MAX_HISTORY_ENTRIES = 100;
+const HISTORY_STORAGE_KEY = 'valuationHistory';
+
+// --- Helper Functions ---
+
+// Function to safely parse float, returning null if invalid
+function safeParseFloat(value) {
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? null : parsed; // Return null for easier checking later
+}
+
+// Function to display error messages in result divs
+function displayError(elementId, message) {
+    const resultDiv = document.getElementById(elementId);
+    if (resultDiv) {
+        // Display a user-friendly error message
+        resultDiv.innerHTML = `<p class="text-red-600 text-center font-semibold p-4 bg-red-100 border border-red-300 rounded">${message}</p>`;
+    }
+}
+
+// Function to format numbers as currency (USD millions) or return 'N/A'
+function formatMillions(value) {
+    if (typeof value !== 'number' || isNaN(value)) return "N/A";
+    return `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} mil`; // Shorter label
+}
+
+// Function to format numbers as percentage or return 'N/A'
+function formatPercent(value) {
+    if (typeof value !== 'number' || isNaN(value)) return "N/A";
+    if (typeof value === 'string' && value.includes('%')) return value;
+    return `${value.toFixed(2)}%`;
+}
+
+// Function to format date/time
+function formatTimestamp(isoString) {
+    if (!isoString) return 'N/A';
+    try {
+        const date = new Date(isoString);
+        return date.toLocaleString(); // Use local time format
+    } catch (e) {
+        return 'Invalid Date';
+    }
+}
+
+// *** IMPROVED *** Function to fetch data from Alpha Vantage with better error handling
+async function fetchAlphaVantage(url) {
+    try {
+        const response = await fetch(url);
+
+        // Check for non-OK HTTP responses (e.g., 404, 500, 401)
+        if (!response.ok) {
+            let errorMsg = `API request failed (status: ${response.status} ${response.statusText})`;
+            try {
+                // Attempt to parse error details from the response body if available
+                const errorData = await response.json();
+                // Append details if found (e.g., Alpha Vantage error messages)
+                if (errorData) {
+                    errorMsg += ` - Details: ${JSON.stringify(errorData)}`;
+                }
+            } catch (jsonError) {
+                // If parsing the error body fails, just use the status text
+                console.warn("Could not parse error response body as JSON:", jsonError);
+            }
+            // Throw a detailed error for HTTP issues
+            throw new Error(errorMsg);
+        }
+
+        // If response is OK, parse the JSON data
+        const data = await response.json();
+
+        // Check for specific error messages or notes within the successful JSON response
+        if (data.Note) {
+             // Treat API usage limit notes as errors to alert the user
+             console.warn("Alpha Vantage API Note:", data.Note);
+             throw new Error(`Alpha Vantage API Note: ${data.Note}. Frequency limit likely reached.`);
+        }
+         if (data['Error Message']) {
+             // Handle specific errors returned by the API
+             console.error("Alpha Vantage API Error:", data['Error Message']);
+             throw new Error(`Alpha Vantage API Error: ${data['Error Message']}`);
+         }
+
+         // Check if essential data is missing even if no explicit error message
+         if (url.includes('function=OVERVIEW') && !data.MarketCapitalization) {
+             if (data.Symbol) throw new Error(`Market cap data not available for ticker ${data.Symbol}. Ensure it's a valid stock symbol.`);
+             else throw new Error(`Unexpected response format for OVERVIEW function.`);
+         }
+          if (url.includes('function=GLOBAL_QUOTE') && (!data["Global Quote"] || !data["Global Quote"]["05. price"])) {
+              if (data["Global Quote"]) throw new Error(`Stock price data not available in the response for the requested ticker.`);
+              else throw new Error(`Unexpected response format for GLOBAL_QUOTE function.`);
+          }
+
+
+        // Return the valid data if no errors were thrown
+        return data;
+
+    } catch (error) {
+        // Log the error caught (could be from fetch, json parsing, or explicitly thrown above)
+        console.error("Error during Alpha Vantage fetch:", error);
+
+        // Re-throw the error to be handled by the calling function.
+        // Ensure it's an Error object with a message.
+        if (error instanceof Error) {
+             throw error; // Re-throw if it's already an Error object
+        } else {
+             // Convert other types (like plain strings or objects) to an Error object
+             throw new Error(String(error));
+        }
+    }
+}
+
+
+// Function to get market cap from Alpha Vantage and convert to millions
+async function getMarketCap(ticker) {
+    if (!ticker) throw new Error("Stock ticker is required.");
+    const url = `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${ticker}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+    // Call the improved fetch function
+    const data = await fetchAlphaVantage(url);
+    // Basic check if data is returned (fetchAlphaVantage handles specific errors)
+    if (data && data.MarketCapitalization && data.MarketCapitalization !== "None") {
+        const marketCap = parseFloat(data.MarketCapitalization);
+        if (isNaN(marketCap)) {
+             // This case should ideally be caught by fetchAlphaVantage, but double-check
+             throw new Error(`Invalid market cap data received for ${ticker}.`);
+        }
+        return marketCap / 1000000; // Convert to millions
+    } else {
+         // This else block might be redundant if fetchAlphaVantage throws correctly, but acts as a fallback
+         throw new Error(`Market cap data not found or invalid for ${ticker} after fetch.`);
+    }
+}
+
+// Function to get stock price from Alpha Vantage
+async function getStockPrice(ticker) {
+     if (!ticker) throw new Error("Stock ticker is required.");
+    const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${ticker}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+     // Call the improved fetch function
+    const data = await fetchAlphaVantage(url);
+     // Basic check if data is returned (fetchAlphaVantage handles specific errors)
+    if (data && data["Global Quote"] && data["Global Quote"]["05. price"]) {
+         const price = parseFloat(data["Global Quote"]["05. price"]);
+         if (isNaN(price)) {
+             // This case should ideally be caught by fetchAlphaVantage, but double-check
+            throw new Error(`Invalid stock price data received for ${ticker}.`);
+         }
+        return price;
+    } else {
+        // This else block might be redundant if fetchAlphaVantage throws correctly, but acts as a fallback
+        throw new Error(`Stock price data not found or invalid for ${ticker} after fetch.`);
+    }
+}
+
+// --- History Management ---
+
+// Function to load history from localStorage
+function loadHistory() {
+    const historyJson = localStorage.getItem(HISTORY_STORAGE_KEY);
+    try {
+        return historyJson ? JSON.parse(historyJson) : [];
+    } catch (e) {
+        console.error("Error parsing history from localStorage:", e);
+        localStorage.removeItem(HISTORY_STORAGE_KEY); // Clear corrupted data
+        return []; // Return empty array on error
+    }
+}
+
+// Function to save history to localStorage
+function saveHistory(history) {
+    try {
+        const limitedHistory = history.slice(0, MAX_HISTORY_ENTRIES);
+        localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(limitedHistory));
+    } catch (e) {
+        console.error("Error saving history to localStorage:", e);
+        alert("Could not save calculation history. Storage might be full or unavailable.");
+    }
+}
+
+// Function to add a calculation record to history
+function addHistoryEntry(entry) {
+    const history = loadHistory();
+    history.unshift(entry); // Add new entry to the beginning
+    saveHistory(history);
+    displayHistory(); // Update the displayed table
+}
+
+// Function to clear history
+function clearHistory() {
+    if (confirm("Are you sure you want to clear the entire calculation history? This cannot be undone.")) {
+        localStorage.removeItem(HISTORY_STORAGE_KEY);
+        displayHistory(); // Refresh the display
+    }
+}
+
+// Function to display the history table
+function displayHistory() {
+    const history = loadHistory();
+    const container = document.getElementById('historyTableContainer');
+    const noHistoryMessage = document.getElementById('noHistoryMessage');
+    if (!container || !noHistoryMessage) return;
+
+    if (history.length === 0) {
+        container.innerHTML = ''; // Clear table
+        noHistoryMessage.style.display = 'block';
+        return;
+    }
+    noHistoryMessage.style.display = 'none';
+
+    // Define columns for the history table
+    const columns = [
+        { key: 'timestamp', label: 'Timestamp' }, { key: 'calcType', label: 'Type' }, { key: 'ticker', label: 'Ticker' }, { key: 'forecastPeriod', label: 'Forecast Period (Yrs)' },
+        { key: 'initial_fcf', label: 'Initial FCF (mil)', format: formatMillions }, { key: 'dcf_growth_1', label: 'FCF Gr% Y1', format: formatPercent }, { key: 'dcf_growth_2', label: 'FCF Gr% Y2', format: formatPercent }, { key: 'dcf_growth_3', label: 'FCF Gr% Y3', format: formatPercent }, { key: 'dcf_growth_4', label: 'FCF Gr% Y4', format: formatPercent }, { key: 'dcf_growth_5', label: 'FCF Gr% Y5', format: formatPercent }, { key: 'dcf_growth_6', label: 'FCF Gr% Y6', format: formatPercent }, { key: 'dcf_growth_7', label: 'FCF Gr% Y7', format: formatPercent }, { key: 'dcf_growth_8', label: 'FCF Gr% Y8', format: formatPercent }, { key: 'dcf_growth_9', label: 'FCF Gr% Y9', format: formatPercent }, { key: 'dcf_growth_10', label: 'FCF Gr% Y10', format: formatPercent },
+        { key: 'net_debt', label: 'Net Debt/(Cash) (mil)', format: formatMillions }, { key: 'dcf_discount_rate', label: 'DCF Disc. Rate (%)', format: formatPercent }, { key: 'terminal_growth_rate', label: 'Terminal Growth (%)', format: formatPercent },
+        { key: 'initial_rev', label: 'Initial Rev (mil)', format: formatMillions }, { key: 'rev_growth_1', label: 'Rev Gr% Y1', format: formatPercent }, { key: 'rev_growth_2', label: 'Rev Gr% Y2', format: formatPercent }, { key: 'rev_growth_3', label: 'Rev Gr% Y3', format: formatPercent }, { key: 'rev_growth_4', label: 'Rev Gr% Y4', format: formatPercent }, { key: 'rev_growth_5', label: 'Rev Gr% Y5', format: formatPercent }, { key: 'rev_growth_6', label: 'Rev Gr% Y6', format: formatPercent }, { key: 'rev_growth_7', label: 'Rev Gr% Y7', format: formatPercent }, { key: 'rev_growth_8', label: 'Rev Gr% Y8', format: formatPercent }, { key: 'rev_growth_9', label: 'Rev Gr% Y9', format: formatPercent }, { key: 'rev_growth_10', label: 'Rev Gr% Y10', format: formatPercent },
+        { key: 'npm', label: 'NPM Final (%)', format: formatPercent }, { key: 'ebitda_margin', label: 'EBITDA Margin Final (%)', format: formatPercent }, { key: 'ebitda_multiplier', label: 'EBITDA Multiplier' }, { key: 'pe_multiplier', label: 'P/E Multiplier' }, { key: 'mult_discount_rate', label: 'Mult. Disc. Rate (%)', format: formatPercent },
+        { key: 'stockPrice', label: 'Stock Price ($)', format: (v) => typeof v === 'number' ? v.toFixed(2) : 'N/A' }, { key: 'marketCap', label: 'Market Cap (mil)', format: formatMillions },
+        { key: 'total_discounted_fcf', label: 'Sum Disc. FCF (mil)', format: formatMillions }, { key: 'terminal_value_pv', label: 'PV Terminal Value (mil)', format: formatMillions }, { key: 'dcf_valuation_before_debt', label: 'Enterprise Value (mil)', format: formatMillions }, { key: 'final_dcf_valuation', label: 'Equity Value (DCF) (mil)', format: formatMillions }, { key: 'upsideDCF', label: 'Upside (DCF)', format: formatPercent },
+        { key: 'revenue_final', label: 'Final Revenue (mil)', format: formatMillions }, { key: 'ebitda_final', label: 'Final EBITDA (mil)', format: formatMillions }, { key: 'net_profit_final', label: 'Final Net Profit (mil)', format: formatMillions }, { key: 'valuation_ebitda_pv', label: 'PV EBITDA Val (mil)', format: formatMillions }, { key: 'valuation_pe_pv', label: 'PV P/E Val (mil)', format: formatMillions }, { key: 'upsideEBITDA', label: 'Upside (EBITDA)', format: formatPercent }, { key: 'upsidePE', label: 'Upside (P/E)', format: formatPercent },
+    ];
+
+    let tableHTML = '<table id="historyTable" class="w-full border-collapse border border-gray-300">';
+    tableHTML += '<thead><tr>';
+    columns.forEach(col => { tableHTML += `<th>${col.label}</th>`; });
+    tableHTML += '</tr></thead>';
+    tableHTML += '<tbody>';
+    history.forEach(entry => {
+        tableHTML += '<tr>';
+        columns.forEach(col => {
+            let value = entry.inputs[col.key] ?? entry.outputs[col.key] ?? entry[col.key] ?? 'N/A';
+             if (col.format && value !== 'N/A') {
+                 if (col.key === 'timestamp') value = formatTimestamp(value);
+                 else {
+                    const numericValue = typeof value === 'string' && !isNaN(parseFloat(value)) ? parseFloat(value) : value;
+                    value = col.format(numericValue);
+                 }
+             } else if (value === null || value === undefined) value = 'N/A';
+
+             let textColor = 'text-gray-800';
+             if ((col.key === 'upsideDCF' || col.key === 'upsideEBITDA' || col.key === 'upsidePE') && typeof entry.outputs[col.key] === 'number') {
+                 textColor = entry.outputs[col.key] >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold';
+             }
+            tableHTML += `<td class="${textColor}">${value}</td>`;
+        });
+        tableHTML += '</tr>';
+    });
+    tableHTML += '</tbody></table>';
+    container.innerHTML = tableHTML;
+}
+
+// Function to export history to CSV
+function exportHistoryToCSV() {
+    const history = loadHistory();
+    if (history.length === 0) {
+        alert("No history data to export.");
+        return;
+    }
+    // Define columns for CSV export
+     const columns = [
+        { key: 'timestamp', label: 'Timestamp' }, { key: 'calcType', label: 'Type' }, { key: 'ticker', label: 'Ticker' }, { key: 'forecastPeriod', label: 'Forecast Period (Yrs)' },
+        { key: 'initial_fcf', label: 'Initial FCF (mil)' }, { key: 'dcf_growth_1', label: 'FCF Gr% Y1' }, { key: 'dcf_growth_2', label: 'FCF Gr% Y2' }, { key: 'dcf_growth_3', label: 'FCF Gr% Y3' }, { key: 'dcf_growth_4', label: 'FCF Gr% Y4' }, { key: 'dcf_growth_5', label: 'FCF Gr% Y5' }, { key: 'dcf_growth_6', label: 'FCF Gr% Y6' }, { key: 'dcf_growth_7', label: 'FCF Gr% Y7' }, { key: 'dcf_growth_8', label: 'FCF Gr% Y8' }, { key: 'dcf_growth_9', label: 'FCF Gr% Y9' }, { key: 'dcf_growth_10', label: 'FCF Gr% Y10' },
+        { key: 'net_debt', label: 'Net Debt/(Cash) (mil)' }, { key: 'dcf_discount_rate', label: 'DCF Disc Rate (%)' }, { key: 'terminal_growth_rate', label: 'Terminal Growth (%)' },
+        { key: 'initial_rev', label: 'Initial Rev (mil)' }, { key: 'rev_growth_1', label: 'Rev Gr% Y1' }, { key: 'rev_growth_2', label: 'Rev Gr% Y2' }, { key: 'rev_growth_3', label: 'Rev Gr% Y3' }, { key: 'rev_growth_4', label: 'Rev Gr% Y4' }, { key: 'rev_growth_5', label: 'Rev Gr% Y5' }, { key: 'rev_growth_6', label: 'Rev Gr% Y6' }, { key: 'rev_growth_7', label: 'Rev Gr% Y7' }, { key: 'rev_growth_8', label: 'Rev Gr% Y8' }, { key: 'rev_growth_9', label: 'Rev Gr% Y9' }, { key: 'rev_growth_10', label: 'Rev Gr% Y10' },
+        { key: 'npm', label: 'NPM Final (%)' }, { key: 'ebitda_margin', label: 'EBITDA Margin Final (%)' }, { key: 'ebitda_multiplier', label: 'EBITDA Multiplier' }, { key: 'pe_multiplier', label: 'P/E Multiplier' }, { key: 'mult_discount_rate', label: 'Mult Disc Rate (%)' },
+        { key: 'stockPrice', label: 'Stock Price ($)' }, { key: 'marketCap', label: 'Market Cap (mil)' },
+        { key: 'total_discounted_fcf', label: 'Sum Disc FCF (mil)' }, { key: 'terminal_value_pv', label: 'PV Terminal Value (mil)' }, { key: 'dcf_valuation_before_debt', label: 'Enterprise Value (mil)' }, { key: 'final_dcf_valuation', label: 'Equity Value (DCF) (mil)' }, { key: 'upsideDCF', label: 'Upside (DCF) (%)' },
+        { key: 'revenue_final', label: 'Final Revenue (mil)' }, { key: 'ebitda_final', label: 'Final EBITDA (mil)' }, { key: 'net_profit_final', label: 'Final Net Profit (mil)' }, { key: 'valuation_ebitda_pv', label: 'PV EBITDA Val (mil)' }, { key: 'valuation_pe_pv', label: 'PV P/E Val (mil)' }, { key: 'upsideEBITDA', label: 'Upside (EBITDA) (%)' }, { key: 'upsidePE', label: 'Upside (P/E) (%)' },
+    ];
+    // Sanitize data for CSV
+    const sanitizeCSV = (value) => {
+        if (value === null || value === undefined || value === 'N/A') return '';
+        let strValue = String(value);
+         if (strValue.endsWith('%')) strValue = strValue.slice(0, -1);
+         if (strValue.endsWith(' mil')) strValue = strValue.slice(0, -4).replace(/,/g, '');
+        strValue = strValue.replace(/\$/g, '');
+        strValue = strValue.replace(/"/g, '""');
+        if (strValue.search(/("|,|\n)/g) >= 0) strValue = `"${strValue}"`;
+        return strValue;
+    };
+    // Create CSV content
+    const headerRow = columns.map(col => sanitizeCSV(col.label)).join(',');
+    const dataRows = history.map(entry => {
+        return columns.map(col => {
+             let value = entry.inputs[col.key] ?? entry.outputs[col.key] ?? entry[col.key] ?? '';
+             if ((col.key.includes('Rate') || col.key.includes('Gr%') || col.key.includes('Margin') || col.key.includes('NPM') || col.key.includes('upside')) && typeof value === 'number') value = value.toFixed(2);
+             else if (col.key.includes('(mil)') && typeof value === 'number') value = value.toFixed(2);
+             else if (col.key === 'timestamp') value = entry.timestamp;
+             else if (typeof value === 'number') value = value.toFixed(2);
+            return sanitizeCSV(value);
+        }).join(',');
+    });
+    const csvContent = [headerRow, ...dataRows].join('\n');
+    // Trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", "valuation_history.csv");
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    } else {
+        alert("CSV export is not supported in this browser.");
+    }
+}
+
+
+// --- Calculation Functions (Modified to save history and improve error display) ---
+
+// Function to calculate "Value by Multiple"
+async function calculateMultiple() {
+    const resultDiv = document.getElementById('resultMultiple');
+    resultDiv.innerHTML = '<p class="text-center text-blue-600">Calculating...</p>';
+    const inputs = {};
+    const outputs = {};
+
+    try {
+        // --- Get Inputs & Store ---
+        inputs.ticker = document.getElementById('ticker_multiple').value.trim().toUpperCase();
+        inputs.initial_rev = safeParseFloat(document.getElementById('initial_rev').value);
+        inputs.forecastPeriod = parseInt(document.getElementById('forecast_period').value);
+        inputs.npm = safeParseFloat(document.getElementById('npm').value);
+        inputs.ebitda_margin = safeParseFloat(document.getElementById('ebitda_margin').value);
+        inputs.ebitda_multiplier = safeParseFloat(document.getElementById('ebitda_multiplier').value);
+        inputs.pe_multiplier = safeParseFloat(document.getElementById('pe_multiplier').value);
+        inputs.mult_discount_rate = safeParseFloat(document.getElementById('discount_rate').value);
+
+        // --- Validate Inputs ---
+        if (inputs.initial_rev === null || inputs.initial_rev <= 0 || inputs.npm === null || inputs.ebitda_margin === null || inputs.ebitda_multiplier === null || inputs.ebitda_multiplier <= 0 || inputs.pe_multiplier === null || inputs.pe_multiplier <= 0 || inputs.mult_discount_rate === null || inputs.mult_discount_rate <= 0) {
+             throw new Error("Please enter valid positive numbers for initial revenue, margins (non-zero), multipliers, and discount rate.");
+        }
+        inputs.growth_rates = [];
+        for (let i = 1; i <= inputs.forecastPeriod; i++) {
+            const rateVal = safeParseFloat(document.getElementById('growth_' + i).value);
+            inputs['rev_growth_' + i] = rateVal;
+            inputs.growth_rates.push(rateVal === null ? 0 : rateVal / 100);
+        }
+
+        // --- Calculations ---
+        const npm_decimal = inputs.npm / 100;
+        const ebitda_margin_decimal = inputs.ebitda_margin / 100;
+        const discount_rate_decimal = inputs.mult_discount_rate / 100;
+        let revenue = inputs.initial_rev;
+        for (let year = 0; year < inputs.forecastPeriod; year++) { revenue *= (1 + inputs.growth_rates[year]); }
+        outputs.revenue_final = revenue;
+        outputs.net_profit_final = outputs.revenue_final * npm_decimal;
+        outputs.ebitda_final = outputs.revenue_final * ebitda_margin_decimal;
+        const valuation_ebitda_future = outputs.ebitda_final * inputs.ebitda_multiplier;
+        const valuation_pe_future = outputs.net_profit_final * inputs.pe_multiplier;
+        const pv_factor = Math.pow(1 + discount_rate_decimal, inputs.forecastPeriod);
+        if (pv_factor === 0) throw new Error("Calculation error: Present value factor is zero.");
+        outputs.valuation_ebitda_pv = valuation_ebitda_future / pv_factor;
+        outputs.valuation_pe_pv = valuation_pe_future / pv_factor;
+
+        // --- Fetch Market Data & Handle Errors ---
+        let marketCap = null;
+        let stockPrice = null;
+        let marketDataError = "";
+        if (inputs.ticker) {
+            resultDiv.innerHTML = '<p class="text-center text-blue-600">Calculating... Fetching market data...</p>';
+            try {
+                [marketCap, stockPrice] = await Promise.all([
+                    getMarketCap(inputs.ticker),
+                    getStockPrice(inputs.ticker)
+                ]);
+                outputs.marketCap = marketCap;
+                outputs.stockPrice = stockPrice;
+            } catch (err) {
+                // *** IMPROVED ERROR MESSAGE HANDLING ***
+                console.error("Error fetching market data (Multiple):", err); // Log full error
+                let specificErrorMessage = (err instanceof Error && err.message) ? err.message : String(err);
+                marketDataError = `Could not fetch market data for ${inputs.ticker}: ${specificErrorMessage}.`;
+                outputs.marketCap = null;
+                outputs.stockPrice = null;
+            }
+        } else {
+            marketDataError = "Enter a stock ticker to compare valuation with current market data.";
+            outputs.marketCap = null;
+            outputs.stockPrice = null;
+        }
+
+        // --- Calculate Upside/Downside ---
+        outputs.upsideEBITDA = "N/A";
+        outputs.upsidePE = "N/A";
+        if (outputs.marketCap !== null && outputs.marketCap > 0) {
+            outputs.upsideEBITDA = ((outputs.valuation_ebitda_pv - outputs.marketCap) / outputs.marketCap) * 100;
+            outputs.upsidePE = ((outputs.valuation_pe_pv - outputs.marketCap) / outputs.marketCap) * 100;
+        } else if (outputs.marketCap === 0) {
+             marketDataError += " Market cap reported as zero, cannot calculate upside/downside.";
+        }
+
+        // --- Display Results ---
+         resultDiv.innerHTML = `
+         <div class="overflow-x-auto">
+           <table class="w-full max-w-lg mx-auto border-collapse border border-gray-300 bg-white rounded-lg shadow">
+             <thead>
+               <tr><th colspan="2" class="bg-blue-600 text-white p-3 text-lg font-semibold rounded-t-lg">Value by Multiple (${inputs.forecastPeriod} Year Forecast)</th></tr>
+             </thead>
+             <tbody>
+               <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Revenue Year ${inputs.forecastPeriod}</td><td class="p-3 text-right font-medium">${formatMillions(outputs.revenue_final)}</td></tr>
+               <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">EBITDA Year ${inputs.forecastPeriod}</td><td class="p-3 text-right font-medium">${formatMillions(outputs.ebitda_final)}</td></tr>
+               <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Net Profit Year ${inputs.forecastPeriod}</td><td class="p-3 text-right font-medium">${formatMillions(outputs.net_profit_final)}</td></tr>
+               <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Future Val (EBITDA)</td><td class="p-3 text-right font-medium">${formatMillions(valuation_ebitda_future)}</td></tr>
+               <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Future Val (P/E)</td><td class="p-3 text-right font-medium">${formatMillions(valuation_pe_future)}</td></tr>
+               <tr class="border-b border-gray-200 bg-gray-100"><td class="p-3 text-gray-800 font-semibold">Present Value (EBITDA)</td><td class="p-3 text-right font-bold text-blue-700">${formatMillions(outputs.valuation_ebitda_pv)}</td></tr>
+               <tr class="border-b border-gray-200 bg-gray-100"><td class="p-3 text-gray-800 font-semibold">Present Value (P/E)</td><td class="p-3 text-right font-bold text-blue-700">${formatMillions(outputs.valuation_pe_pv)}</td></tr>
+               ${ marketDataError ? `<tr><td colspan="2" class="p-3 text-center text-yellow-700 bg-yellow-100 border-t border-gray-300">${marketDataError} Calculations based on inputs only.</td></tr>` : ''}
+               ${ (outputs.marketCap !== null && outputs.stockPrice !== null) ? `
+               <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Current Price (${inputs.ticker})</td><td class="p-3 text-right font-medium">$${outputs.stockPrice.toFixed(2)}</td></tr>
+               <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Current Market Cap (${inputs.ticker})</td><td class="p-3 text-right font-medium">${formatMillions(outputs.marketCap)}</td></tr>
+               <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Upside/Downside (vs PV EBITDA)</td><td class="p-3 text-right font-semibold ${outputs.upsideEBITDA >= 0 ? 'text-green-600' : 'text-red-600'}">${formatPercent(outputs.upsideEBITDA)}</td></tr>
+               <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Upside/Downside (vs PV P/E)</td><td class="p-3 text-right font-semibold ${outputs.upsidePE >= 0 ? 'text-green-600' : 'text-red-600'}">${formatPercent(outputs.upsidePE)}</td></tr>
+               ` : ''}
+             </tbody>
+           </table>
+           </div>
+         `;
+
+        // --- Save to History ---
+        addHistoryEntry({
+            timestamp: new Date().toISOString(), calcType: 'Multiple', ticker: inputs.ticker || 'N/A',
+            forecastPeriod: inputs.forecastPeriod, inputs: inputs, outputs: outputs
+        });
+
+    } catch (error) {
+        console.error("Calculation Error (Multiple):", error);
+        // Display the specific error message from the caught error
+        displayError('resultMultiple', `Error: ${error.message || String(error)}`);
+    }
+}
+
+// Function to calculate DCF Model
+async function calculateDCF() {
+    const resultDiv = document.getElementById('resultDCF');
+    resultDiv.innerHTML = '<p class="text-center text-blue-600">Calculating...</p>';
+    const inputs = {};
+    const outputs = {};
+
+    try {
+        // --- Get Inputs & Store ---
+        inputs.ticker = document.getElementById('ticker_dcf').value.trim().toUpperCase();
+        inputs.initial_fcf = safeParseFloat(document.getElementById('initial_fcf').value);
+        inputs.forecastPeriod = parseInt(document.getElementById('forecast_period_dcf').value);
+        inputs.dcf_discount_rate = safeParseFloat(document.getElementById('dcf_discount_rate').value);
+        inputs.terminal_growth_rate = safeParseFloat(document.getElementById('terminal_growth_rate').value);
+        inputs.net_debt = safeParseFloat(document.getElementById('net_debt').value) ?? 0;
+
+        // --- Validate Inputs ---
+        if (inputs.initial_fcf === null || inputs.dcf_discount_rate === null || inputs.dcf_discount_rate <= 0) {
+             throw new Error("Please enter a valid Initial FCF and a positive Discount Rate.");
+        }
+         if (inputs.terminal_growth_rate === null || inputs.dcf_discount_rate <= inputs.terminal_growth_rate) {
+            throw new Error("Discount Rate must be greater than Terminal Growth Rate (and both must be valid numbers).");
+        }
+        inputs.growth_rates = [];
+        for (let i = 1; i <= inputs.forecastPeriod; i++) {
+             const rateVal = safeParseFloat(document.getElementById('dcf_growth_' + i).value);
+             inputs['dcf_growth_' + i] = rateVal;
+             inputs.growth_rates.push(rateVal === null ? 0 : rateVal / 100);
+        }
+
+        // --- Calculations ---
+        const discount_rate_decimal = inputs.dcf_discount_rate / 100;
+        const terminal_growth_rate_decimal = inputs.terminal_growth_rate / 100;
+        let fcf = [inputs.initial_fcf];
+        for (let year = 0; year < inputs.forecastPeriod; year++) { fcf.push(fcf[year] * (1 + inputs.growth_rates[year])); }
+        let discounted_fcf_sum = 0;
+        for (let year = 1; year <= inputs.forecastPeriod; year++) {
+            const pv_factor = Math.pow(1 + discount_rate_decimal, year);
+             if (pv_factor === 0) throw new Error(`Calculation error: Present value factor is zero for year ${year}.`);
+            discounted_fcf_sum += fcf[year] / pv_factor;
+        }
+        outputs.total_discounted_fcf = discounted_fcf_sum;
+        const terminal_value_numerator = fcf[inputs.forecastPeriod] * (1 + terminal_growth_rate_decimal);
+        const terminal_value_denominator = discount_rate_decimal - terminal_growth_rate_decimal;
+         if (terminal_value_denominator === 0) throw new Error("Calculation error: Terminal value denominator is zero.");
+        const terminal_value = terminal_value_numerator / terminal_value_denominator;
+        const terminal_value_pv_factor = Math.pow(1 + discount_rate_decimal, inputs.forecastPeriod);
+        if (terminal_value_pv_factor === 0) throw new Error("Calculation error: Terminal value PV factor is zero.");
+        outputs.terminal_value_pv = terminal_value / terminal_value_pv_factor;
+        outputs.dcf_valuation_before_debt = outputs.total_discounted_fcf + outputs.terminal_value_pv;
+        outputs.final_dcf_valuation = outputs.dcf_valuation_before_debt - inputs.net_debt;
+
+        // --- Fetch Market Data & Handle Errors ---
+        let marketCap = null;
+        let stockPrice = null;
+        let marketDataError = "";
+         if (inputs.ticker) {
+            resultDiv.innerHTML = '<p class="text-center text-blue-600">Calculating... Fetching market data...</p>';
+            try {
+                [marketCap, stockPrice] = await Promise.all([
+                    getMarketCap(inputs.ticker),
+                    getStockPrice(inputs.ticker)
+                ]);
+                 outputs.marketCap = marketCap;
+                 outputs.stockPrice = stockPrice;
+            } catch (err) {
+                 // *** IMPROVED ERROR MESSAGE HANDLING ***
+                 console.error("Error fetching market data (DCF):", err); // Log full error
+                 let specificErrorMessage = (err instanceof Error && err.message) ? err.message : String(err);
+                 marketDataError = `Could not fetch market data for ${inputs.ticker}: ${specificErrorMessage}.`;
+                 outputs.marketCap = null;
+                 outputs.stockPrice = null;
+            }
+        } else {
+            marketDataError = "Enter a stock ticker to compare valuation with current market data.";
+             outputs.marketCap = null;
+             outputs.stockPrice = null;
+        }
+
+        // --- Calculate Upside/Downside ---
+         outputs.upsideDCF = "N/A";
+        if (outputs.marketCap !== null && outputs.marketCap > 0) {
+            outputs.upsideDCF = ((outputs.final_dcf_valuation - outputs.marketCap) / outputs.marketCap) * 100;
+        } else if (outputs.marketCap === 0) {
+             marketDataError += " Market cap reported as zero, cannot calculate upside/downside.";
+        }
+
+        // --- Display Results ---
+        resultDiv.innerHTML = `
+         <div class="overflow-x-auto">
+           <table class="w-full max-w-lg mx-auto border-collapse border border-gray-300 bg-white rounded-lg shadow">
+              <thead>
+               <tr><th colspan="2" class="bg-blue-600 text-white p-3 text-lg font-semibold rounded-t-lg">DCF Model (${inputs.forecastPeriod} Year Forecast)</th></tr>
+             </thead>
+             <tbody>
+               <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Sum Disc. FCF (Yrs 1-${inputs.forecastPeriod})</td><td class="p-3 text-right font-medium">${formatMillions(outputs.total_discounted_fcf)}</td></tr>
+               <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">PV Terminal Value</td><td class="p-3 text-right font-medium">${formatMillions(outputs.terminal_value_pv)}</td></tr>
+               <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Enterprise Value (DCF)</td><td class="p-3 text-right font-medium">${formatMillions(outputs.dcf_valuation_before_debt)}</td></tr>
+               <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Less: Net Debt/(Add: Cash)</td><td class="p-3 text-right font-medium">${formatMillions(inputs.net_debt)}</td></tr>
+               <tr class="border-b border-gray-200 bg-gray-100"><td class="p-3 text-gray-800 font-semibold">Equity Value (Final DCF)</td><td class="p-3 text-right font-bold text-blue-700">${formatMillions(outputs.final_dcf_valuation)}</td></tr>
+                ${ marketDataError ? `<tr><td colspan="2" class="p-3 text-center text-yellow-700 bg-yellow-100 border-t border-gray-300">${marketDataError} Calculations based on inputs only.</td></tr>` : ''}
+               ${ (outputs.marketCap !== null && outputs.stockPrice !== null) ? `
+               <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Current Price (${inputs.ticker})</td><td class="p-3 text-right font-medium">$${outputs.stockPrice.toFixed(2)}</td></tr>
+               <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Current Market Cap (${inputs.ticker})</td><td class="p-3 text-right font-medium">${formatMillions(outputs.marketCap)}</td></tr>
+               <tr class="border-b border-gray-200"><td class="p-3 text-gray-700">Upside/Downside (vs Equity Value)</td><td class="p-3 text-right font-semibold ${outputs.upsideDCF >= 0 ? 'text-green-600' : 'text-red-600'}">${formatPercent(outputs.upsideDCF)}</td></tr>
+                ` : ''}
+             </tbody>
+           </table>
+           </div>
+         `;
+
+         // --- Save to History ---
+         addHistoryEntry({
+             timestamp: new Date().toISOString(), calcType: 'DCF', ticker: inputs.ticker || 'N/A',
+             forecastPeriod: inputs.forecastPeriod, inputs: inputs, outputs: outputs
+         });
+
+    } catch (error) {
+        console.error("Calculation Error (DCF):", error);
+         // Display the specific error message from the caught error
+        displayError('resultDCF', `Error: ${error.message || String(error)}`);
+    }
+}
+
+
+// --- Event Listeners and Initialization ---
+
+// Function to handle dynamic display of growth rate inputs based on forecast period
+function setupForecastPeriodListener(selectId, growthGroupNamePrefix, labelSpanIds = []) {
+    const forecastSelect = document.getElementById(selectId);
+    if (!forecastSelect) return;
+    const updateVisibility = () => {
+        const period = parseInt(forecastSelect.value);
+        labelSpanIds.forEach(spanId => {
+            const labelSpan = document.getElementById(spanId);
+            if (labelSpan) labelSpan.innerText = period;
+        });
+        for (let i = 1; i <= 10; i++) {
+            const group = document.getElementById(`${growthGroupNamePrefix}${i}`);
+            if (group) group.style.display = (i <= period) ? 'flex' : 'none';
+        }
+    };
+    forecastSelect.addEventListener('change', updateVisibility);
+    updateVisibility(); // Initial call
+}
+
+// Function to move focus on Enter key press
+function handleKeyDown(event) {
+    if (event.key === "Enter" || event.key === "NumpadEnter") {
+        event.preventDefault();
+        const currentElement = event.target;
+        const section = currentElement.closest('.section') || document.body;
+        const focusableElements = Array.from(
+            section.querySelectorAll('input:not([type="hidden"]):not(:disabled), select:not(:disabled), button:not(:disabled)')
+        ).filter(el => !!( el.offsetWidth || el.offsetHeight || el.getClientRects().length ));
+        const currentIndex = focusableElements.indexOf(currentElement);
+        if (currentIndex > -1 && currentIndex < focusableElements.length - 1) {
+            const nextElement = focusableElements[currentIndex + 1];
+            nextElement.focus();
+            if (nextElement.select) nextElement.select();
+        } else if (currentIndex === focusableElements.length - 1) {
+            const button = section.querySelector('button:not(:disabled)');
+            if(button) button.focus();
+        }
+        return false;
+    }
+}
+
+// Attach listeners after the DOM is fully loaded
+window.addEventListener('DOMContentLoaded', () => {
+    // Attach keydown listener
+    const inputsAndSelects = document.querySelectorAll('input, select');
+    inputsAndSelects.forEach(element => element.addEventListener('keydown', handleKeyDown));
+
+    // Setup forecast period listeners
+    setupForecastPeriodListener('forecast_period', 'group_growth_', ['npYearLabel', 'ebYearLabel']);
+    setupForecastPeriodListener('forecast_period_dcf', 'group_dcf_growth_');
+
+    // Add basic input validation feedback
+    const numericInputs = document.querySelectorAll('input[type="number"]');
+    numericInputs.forEach(input => {
+        input.addEventListener('input', () => {
+            const value = input.value;
+            if (value !== '' && !/^-?\d*\.?\d*(?:[eE][-+]?\d+)?$/.test(value)) {
+                 input.classList.add('border-red-500');
+                 input.setCustomValidity("Please enter a valid number.");
+            } else {
+                 input.classList.remove('border-red-500');
+                 input.setCustomValidity("");
+            }
+        });
+         input.addEventListener('blur', () => {
+              if (!input.checkValidity()) input.classList.add('border-red-500');
+              else input.classList.remove('border-red-500');
+         });
+    });
+
+    // Display initial history on load
+    displayHistory();
+});
+
+</script>
+</body>
+</html>
